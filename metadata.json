@@ -1,0 +1,6 @@
+{
+  "name": "SantriCity Masyarakat - Smart Pesantren Super Platform",
+  "description": "Infrastruktur super aplikasi cerdas terpadu SantriCity Masyarakat untuk pendidikan, kesehatan Poskestren, SPP digital, perizinan QR, mutabaah tahfidz, dan dasbor analitik kaffah berbasis AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
