@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   SantriProfile,
   TahfidzEntry,
@@ -15,13 +15,26 @@ import {
   Award,
   Sparkles,
   Volume2,
+  Mic,
+  Play,
+  Pause,
+  UserCheck,
+  Clock,
+  ShieldCheck,
+  Calendar,
+  ChevronRight,
 } from 'lucide-react';
 import { exportToCsv } from '../services/storageService';
+import { TahfidzProfileBadgeCard } from './TahfidzProfileBadgeCard';
+import { TahfidzAudioRecorderModal } from './TahfidzAudioRecorderModal';
+import { TahfidzUstazVerificationModal } from './TahfidzUstazVerificationModal';
+import { AITahfidzPlannerPanel } from './AITahfidzPlannerPanel';
 
 interface TahfidzModuleProps {
   santri: SantriProfile;
   tahfidzList: TahfidzEntry[];
   onAddEntry: (entry: Omit<TahfidzEntry, 'id'>) => void;
+  onUpdateEntry?: (entry: TahfidzEntry) => void;
   currentRole: UserRole;
   lang: Language;
 }
@@ -30,13 +43,19 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
   santri,
   tahfidzList,
   onAddEntry,
+  onUpdateEntry,
   currentRole,
   lang,
 }) => {
   const t = getTranslation(lang);
+  const [activeSubTab, setActiveSubTab] = useState<'mutabaah' | 'ai-planner'>('mutabaah');
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState<boolean>(false);
+  const [verifyingEntry, setVerifyingEntry] = useState<TahfidzEntry | null>(null);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Form State
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -46,19 +65,58 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
   const [ayatMulai, setAyatMulai] = useState<number>(1);
   const [ayatSelesai, setAyatSelesai] = useState<number>(25);
   const [juz, setJuz] = useState<number>(16);
-  const [kelancaran, setKelancaran] = useState<'Mumtaz' | 'Jayyid Jiddan' | 'Jayyid' | 'Maqbul'>('Mumtaz');
+  const [kelancaran, setKelancaran] = useState<'Mumtaz' | 'Jayyid Jiddan' | 'Jayyid' | 'Maqbul' | 'Sedang Ditinjau'>('Mumtaz');
   const [tajwid, setTajwid] = useState<number>(95);
   const [catatanMusyrif, setCatatanMusyrif] = useState<string>('');
   const [musyrifNama, setMusyrifNama] = useState<string>('Ust. Ahmad Fauzan, Al-Hafidz');
 
+  const pendingVerificationCount = tahfidzList.filter(
+    (t) => t.statusVerifikasi === 'Menunggu Verifikasi Ustaz'
+  ).length;
+
+  const audioCount = tahfidzList.filter((t) => !!t.audioUrl).length;
+
   const filteredEntries = tahfidzList.filter((item) => {
-    const matchType = filterType === 'all' || item.tipe === filterType;
+    let matchType = true;
+    if (filterType === 'all') matchType = true;
+    else if (filterType === 'audio') matchType = !!item.audioUrl;
+    else if (filterType === 'pending') matchType = item.statusVerifikasi === 'Menunggu Verifikasi Ustaz';
+    else matchType = item.tipe === filterType;
+
     const matchSearch =
       item.surah.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.musyrifNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.catatanMusyrif.toLowerCase().includes(searchQuery.toLowerCase());
+      item.catatanMusyrif.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.catatanSantri && item.catatanSantri.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchType && matchSearch;
   });
+
+  const handleToggleInlineAudio = (item: TahfidzEntry) => {
+    if (!item.audioUrl) return;
+
+    if (playingAudioId === item.id) {
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+      }
+      setPlayingAudioId(null);
+    } else {
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+      }
+      const audio = new Audio(item.audioUrl);
+      activeAudioRef.current = audio;
+      setPlayingAudioId(item.id);
+      audio.onended = () => setPlayingAudioId(null);
+      audio.onerror = () => setPlayingAudioId(null);
+      audio.play().catch(() => setPlayingAudioId(null));
+    }
+  };
+
+  const handleSaveVerification = (updatedEntry: TahfidzEntry) => {
+    if (onUpdateEntry) {
+      onUpdateEntry(updatedEntry);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +173,40 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setActiveSubTab(activeSubTab === 'ai-planner' ? 'mutabaah' : 'ai-planner')}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+              activeSubTab === 'ai-planner'
+                ? 'bg-neutral-800 text-emerald-300 border-neutral-700'
+                : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/40'
+            }`}
+            title="Buka AI Tahfidz Planner Target Harian"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>{activeSubTab === 'ai-planner' ? 'Ke Riwayat Setoran' : 'AI Tahfidz Planner'}</span>
+          </button>
+
+          {pendingVerificationCount > 0 && (
+            <button
+              onClick={() => setFilterType('pending')}
+              className="px-2.5 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 hover:bg-amber-500/20 transition-colors shadow-xs"
+              title="Lihat rekaman santri yang menunggu verifikasi Ustaz"
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              <span>{pendingVerificationCount} Perlu Verifikasi</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsAudioModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-neutral-950 shadow-md shadow-emerald-950/40 transition-all flex items-center gap-1.5 transform hover:scale-102 active:scale-98"
+            title="Rekam audio setoran hafalan menggunakan mikrofon browser untuk verifikasi Ustaz"
+          >
+            <Mic className="w-4 h-4 text-neutral-950 animate-pulse" />
+            <span>Rekam Setoran Suara</span>
+          </button>
+
           <button
             onClick={handleExport}
             className="px-3 py-2 rounded-xl text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition-colors flex items-center gap-1.5"
@@ -130,11 +221,100 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
               className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-950/40 transition-all flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
-              <span>Input Setoran Hafalan</span>
+              <span>Input Setoran Tatap Muka</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Sub-Navigation Switcher: Mutaba'ah vs AI Planner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 rounded-2xl bg-neutral-900/90 border border-neutral-800">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveSubTab('mutabaah')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeSubTab === 'mutabaah'
+                ? 'bg-neutral-800 text-white shadow-md'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Mutaba'ah & Riwayat Setoran</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-neutral-950 text-neutral-400 font-mono">
+              {tahfidzList.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('ai-planner')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeSubTab === 'ai-planner'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-950/40'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+            <span>AI Tahfidz Planner</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+              Target Harian
+            </span>
+          </button>
+        </div>
+
+        {activeSubTab === 'mutabaah' && (
+          <div className="flex items-center gap-2 px-3 text-xs text-neutral-400">
+            <span className="text-neutral-500">Target Semester:</span>
+            <span className="font-semibold text-emerald-400 font-mono">
+              Juz {santri.targetJuz}
+            </span>
+            <span className="text-neutral-600">•</span>
+            <span className="text-neutral-500">Sisa:</span>
+            <span className="font-semibold text-amber-400 font-mono">
+              {Math.max(0, santri.targetJuz - santri.capaianJuz)} Juz
+            </span>
+          </div>
+        )}
+      </div>
+
+      {activeSubTab === 'ai-planner' ? (
+        <AITahfidzPlannerPanel
+          santri={santri}
+          tahfidzList={tahfidzList}
+          onOpenAudioRecorder={() => setIsAudioModalOpen(true)}
+        />
+      ) : (
+        <>
+          {/* Quick AI Planner Teaser Banner in Mutaba'ah view */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-neutral-900 to-neutral-900 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-white">
+                    Rekomendasi Target Harian AI Santri
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300">
+                    Sisa {Math.max(0, santri.targetJuz - santri.capaianJuz)} Juz
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  Untuk mengkhatamkan target Juz {santri.targetJuz} di semester ini, target ideal santri adalah ~{Math.max(1, Math.round(((santri.targetJuz - santri.capaianJuz) * 20) / 56))} halaman/hari dengan 3 ritme halaqah harian.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveSubTab('ai-planner')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-neutral-950 transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
+            >
+              <span>Buka AI Planner</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Santri Tahfidz Profile Card with Virtual Achievement Badges */}
+          <TahfidzProfileBadgeCard santri={santri} tahfidzList={tahfidzList} />
 
       {/* Progress & Target Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -240,10 +420,10 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
+        <div className="flex flex-wrap items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto">
           <button
             onClick={() => setFilterType('all')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
               filterType === 'all'
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white'
@@ -253,17 +433,17 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
           </button>
           <button
             onClick={() => setFilterType('Ziyadah')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
               filterType === 'Ziyadah'
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            Ziyadah (Hafalan Baru)
+            Ziyadah (Baru)
           </button>
           <button
             onClick={() => setFilterType('Murajaah')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
               filterType === 'Murajaah'
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white'
@@ -273,21 +453,45 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
           </button>
           <button
             onClick={() => setFilterType('Tasmi\'')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
               filterType === 'Tasmi\''
                 ? 'bg-neutral-800 text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            Tasmi' (Ujian Duduk)
+            Tasmi' (Ujian)
           </button>
+          <button
+            onClick={() => setFilterType('audio')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+              filterType === 'audio'
+                ? 'bg-neutral-800 text-emerald-400 shadow-sm'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Mic className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Rekaman Audio ({audioCount})</span>
+          </button>
+          {pendingVerificationCount > 0 && (
+            <button
+              onClick={() => setFilterType('pending')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                filterType === 'pending'
+                  ? 'bg-amber-950/60 text-amber-300 border border-amber-500/40 shadow-sm'
+                  : 'text-amber-400 hover:text-amber-300'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Perlu Verifikasi ({pendingVerificationCount})</span>
+            </button>
+          )}
         </div>
 
         <div className="relative w-full sm:w-64">
           <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Cari surah, musyrif..."
+            placeholder="Cari surah, musyrif, catatan..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
@@ -296,7 +500,7 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
       </div>
 
       {/* Table of Entries */}
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden">
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden shadow-lg">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead className="bg-neutral-950 text-neutral-400 border-b border-neutral-800 text-[11px]">
@@ -307,7 +511,8 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
                 <th className="py-3 px-4 font-medium">Juz</th>
                 <th className="py-3 px-4 font-medium">Kelancaran</th>
                 <th className="py-3 px-4 font-medium text-right">Skor Tajwid</th>
-                <th className="py-3 px-4 font-medium">Musyrif & Catatan Bimbingan</th>
+                <th className="py-3 px-4 font-medium">Rekaman Suara & Verifikasi</th>
+                <th className="py-3 px-4 font-medium">Musyrif & Bimbingan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-800/80">
@@ -332,18 +537,88 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
                     Juz {item.juz}
                   </td>
                   <td className="py-3 px-4 whitespace-nowrap">
-                    <span className="text-emerald-400 font-medium">
+                    <span
+                      className={`font-medium ${
+                        item.kelancaran === 'Sedang Ditinjau'
+                          ? 'text-amber-400 italic'
+                          : 'text-emerald-400'
+                      }`}
+                    >
                       {item.kelancaran}
                     </span>
                   </td>
                   <td className="py-3 px-4 whitespace-nowrap font-mono-numbers text-right font-bold text-amber-400">
-                    {item.tajwid}
+                    {item.tajwid > 0 ? item.tajwid : <span className="text-neutral-500">-</span>}
+                  </td>
+                  <td className="py-3 px-4 whitespace-nowrap">
+                    {item.audioUrl ? (
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleInlineAudio(item)}
+                            className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 text-[11px] font-mono font-semibold transition-colors ${
+                              playingAudioId === item.id
+                                ? 'bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm'
+                                : 'bg-neutral-800 text-neutral-200 border-neutral-700 hover:bg-neutral-700'
+                            }`}
+                            title="Putar rekaman suara setoran"
+                          >
+                            {playingAudioId === item.id ? (
+                              <Pause className="w-3 h-3 text-neutral-950" />
+                            ) : (
+                              <Play className="w-3 h-3 text-emerald-400" />
+                            )}
+                            <span>{item.audioDurationSeconds ? `${item.audioDurationSeconds}s` : 'Audio'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setVerifyingEntry(item)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-cyan-950/40 text-cyan-300 border border-cyan-800/40 hover:bg-cyan-900/40 transition-colors flex items-center gap-1"
+                            title={
+                              currentRole === 'ustaz' || currentRole === 'admin'
+                                ? 'Buka Panel Penilaian & Koreksi Ustaz'
+                                : 'Dengar Rekaman & Tinjau Evaluasi'
+                            }
+                          >
+                            <UserCheck className="w-3 h-3 text-cyan-400" />
+                            <span>
+                              {currentRole === 'ustaz' || currentRole === 'admin' ? 'Verifikasi' : 'Review'}
+                            </span>
+                          </button>
+                        </div>
+
+                        {item.statusVerifikasi && (
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-semibold self-start border ${
+                              item.statusVerifikasi === 'Menunggu Verifikasi Ustaz'
+                                ? 'bg-amber-950/40 text-amber-300 border-amber-800/40 animate-pulse'
+                                : item.statusVerifikasi === 'Perlu Perbaikan (Remedial)'
+                                ? 'bg-rose-950/40 text-rose-300 border-rose-800/40'
+                                : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
+                            }`}
+                          >
+                            {item.statusVerifikasi}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-neutral-500 italic">
+                        Tatap Muka
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <div className="text-neutral-300 font-medium">{item.musyrifNama}</div>
                     <p className="text-[11px] text-neutral-400 line-clamp-2">
                       {item.catatanMusyrif}
                     </p>
+                    {item.catatanSantri && (
+                      <p className="text-[10px] text-emerald-400/90 italic mt-0.5 line-clamp-1">
+                        Santri: "{item.catatanSantri}"
+                      </p>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -351,6 +626,8 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Modal: Input Setoran Baru */}
       {isModalOpen && (
@@ -525,6 +802,28 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal: Rekam Setoran Audio via Mikrofon Browser */}
+      <TahfidzAudioRecorderModal
+        isOpen={isAudioModalOpen}
+        onClose={() => setIsAudioModalOpen(false)}
+        santri={santri}
+        onSubmitRecording={(newEntry) => {
+          onAddEntry(newEntry);
+        }}
+      />
+
+      {/* Modal: Verifikasi Rekaman Suara oleh Ustaz / Review */}
+      {verifyingEntry && (
+        <TahfidzUstazVerificationModal
+          isOpen={!!verifyingEntry}
+          onClose={() => setVerifyingEntry(null)}
+          entry={verifyingEntry}
+          santri={santri}
+          currentRole={currentRole}
+          onSaveVerification={handleSaveVerification}
+        />
       )}
     </div>
   );

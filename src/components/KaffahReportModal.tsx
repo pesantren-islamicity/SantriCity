@@ -11,8 +11,9 @@ import {
   NextLessonBatchRecommendation,
   SmartStudyTimetable,
 } from '../types/pesantren';
-import { Printer, Download, X, Sparkles, BookMarked, Brain, Clock, Compass, Target, Calendar, Flame } from 'lucide-react';
+import { Printer, Download, X, Sparkles, BookMarked, Brain, Clock, Compass, Target, Calendar, Flame, Award } from 'lucide-react';
 import { loadFromLocal } from '../services/storageService';
+import { calculateTahfidzBadges } from '../services/tahfidzBadgeService';
 
 interface KaffahReportModalProps {
   isOpen: boolean;
@@ -52,6 +53,9 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
 
   const cachedTimetables = loadFromLocal<Record<string, SmartStudyTimetable>>('smart_study_timetables', {});
   const smartTimetable = cachedTimetables[santri.id];
+
+  const tahfidzBadges = calculateTahfidzBadges(santri, tahfidzList);
+  const unlockedBadges = tahfidzBadges.filter((b) => b.isUnlocked);
 
   const handlePrint = () => {
     window.print();
@@ -171,6 +175,27 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
                 ))}
               </tbody>
             </table>
+
+            {/* Virtual Achievement Badges in Report */}
+            {unlockedBadges.length > 0 && (
+              <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-neutral-800">
+                  <Award className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Lencana Prestasi Tahfidz ({unlockedBadges.length}/{tahfidzBadges.length} Diraih):</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {unlockedBadges.map((b) => (
+                    <span
+                      key={b.id}
+                      className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-semibold flex items-center gap-1"
+                    >
+                      <span>🎖️</span>
+                      <span>{b.title} ({b.tier})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 2: Transkrip Nilai Akademik */}

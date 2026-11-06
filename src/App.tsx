@@ -251,6 +251,12 @@ export default function App() {
     }
   };
 
+  const handleUpdateTahfidz = (updatedEntry: TahfidzEntry) => {
+    setTahfidzList((prev) =>
+      prev.map((item) => (item.id === updatedEntry.id ? updatedEntry : item))
+    );
+  };
+
   const handleAddNilai = (entry: Omit<NilaiMataPelajaran, 'id'>) => {
     const newEntry: NilaiMataPelajaran = {
       ...entry,
@@ -541,6 +547,7 @@ export default function App() {
               santri={activeSantri}
               tahfidzList={santriTahfidz}
               onAddEntry={handleAddTahfidz}
+              onUpdateEntry={handleUpdateTahfidz}
               currentRole={currentRole}
               lang={lang}
             />

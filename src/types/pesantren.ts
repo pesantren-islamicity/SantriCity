@@ -34,10 +34,17 @@ export interface TahfidzEntry {
   ayatMulai: number;
   ayatSelesai: number;
   juz: number;
-  kelancaran: 'Mumtaz' | 'Jayyid Jiddan' | 'Jayyid' | 'Maqbul';
+  kelancaran: 'Mumtaz' | 'Jayyid Jiddan' | 'Jayyid' | 'Maqbul' | 'Sedang Ditinjau';
   tajwid: number; // 0 - 100
   catatanMusyrif: string;
   musyrifNama: string;
+  // Audio recording & Ustaz verification fields
+  audioUrl?: string;
+  audioDurationSeconds?: number;
+  statusVerifikasi?: 'Menunggu Verifikasi Ustaz' | 'Terverifikasi Mumtaz' | 'Terverifikasi' | 'Perlu Perbaikan (Remedial)';
+  catatanSantri?: string;
+  diverifikasiOleh?: string;
+  diverifikasiPada?: string;
 }
 
 export type TimeOfDaySlot = 'Subuh / Pagi Buta' | 'Pagi (Sekolah Formal)' | 'Siang / Ba\'da Dzuhur' | 'Sore (Halaqah Asar)' | 'Malam (Ba\'da Maghrib & Belajar Mandiri)';
@@ -603,4 +610,92 @@ export interface AIAnalisisKaffah {
   rekomendasiMusyrif: string;
   prediksiKelulusanTarget: string;
   terakhirDiperbarui: string;
+}
+
+export type TahfidzBadgeTier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond';
+
+export type TahfidzBadgeCategory =
+  | 'Progres Target Juz'
+  | 'Mutqin & Fashahah'
+  | 'Ujian & Tasmi\''
+  | 'Kedisiplinan Halaqah';
+
+export interface TahfidzBadge {
+  id: string;
+  code: string;
+  title: string;
+  titleArabic: string;
+  subtitle: string;
+  description: string;
+  category: TahfidzBadgeCategory;
+  tier: TahfidzBadgeTier;
+  iconType: 'book' | 'award' | 'star' | 'trophy' | 'crown' | 'sparkles' | 'shield' | 'flame' | 'gem';
+  accentColor: 'emerald' | 'amber' | 'blue' | 'purple' | 'cyan' | 'rose';
+  isUnlocked: boolean;
+  unlockedAt?: string;
+  progressPercentage: number; // 0 - 100
+  currentMetricValue: number;
+  targetMetricValue: number;
+  progressLabel: string; // e.g. "18.5 / 30 Juz"
+  requirementText: string;
+  motivationalHadith: string;
+  benefits: string[];
+}
+
+export interface DailyHalaqahRoutineGoal {
+  waktu: 'Subuh' | 'Ashar' | 'Maghrib/Malam';
+  tipe: 'Ziyadah' | 'Murajaah' | 'Tikrar Mandiri';
+  focusSurah: string;
+  targetAyat: string;
+  halamanEstimasi: number;
+  durasiMenit: number;
+  panduanMetode: string;
+}
+
+export interface WeeklyTahfidzPlanMilestone {
+  pekanKe: number;
+  rentangTanggal: string;
+  targetZiyadahJuz: string;
+  targetMurajaahJuz: string;
+  totalHalamanPekanIni: number;
+  fokusTajwid: string;
+  jadwalTasmiPekan: string;
+  status: 'Sedang Berjalan' | 'Rencana Mendatang' | 'Tercapai';
+}
+
+export interface AITahfidzPlannerPlan {
+  santriId: string;
+  generatedAt: string;
+  semesterLabel: string;
+  targetJuz: number;
+  currentCapaianJuz: number;
+  remainingJuz: number;
+  remainingDaysInSemester: number;
+  activeStudyDaysPerWeek: number;
+  totalEffectiveStudyDays: number;
+  requiredHalamanPerHari: number;
+  requiredBarisPerHari: number;
+  recommendedMurajaahJuzPerHari: number;
+  velocityStatus: 'Optimal & Realistis' | 'Akselerasi Tinggi' | 'Santai (Bisa Dinaikkan)' | 'Perlu Penyesuaian Beban';
+  feasibilityScore: number;
+  todayGoal: {
+    tanggal: string;
+    targetSurah: string;
+    targetAyat: string;
+    targetJuz: number;
+    halamanCount: number;
+    jadwalSesi: DailyHalaqahRoutineGoal[];
+    targetMurajaahHariIni: string;
+    tipsHafalanHariIni: string;
+    isCompleted?: boolean;
+  };
+  weeklyRoadmap: WeeklyTahfidzPlanMilestone[];
+  aiRecommendations: {
+    strategiMenghafal: string;
+    metodeMurajaah: string;
+    jadwalTikrarOptimal: string;
+    nasihatPencegahanLupa: string;
+    catatanUntukWali: string;
+    catatanUntukMusyrif: string;
+  };
 }
