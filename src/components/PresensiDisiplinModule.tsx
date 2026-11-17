@@ -14,10 +14,9 @@ import {
   FileSpreadsheet,
   Award,
   AlertTriangle,
-  CheckCircle2,
-  Clock,
 } from 'lucide-react';
 import { exportToCsv } from '../services/storageService';
+import { YearlyAttendanceHeatmap } from './YearlyAttendanceHeatmap';
 
 interface PresensiDisiplinProps {
   santri: SantriProfile;
@@ -240,9 +239,15 @@ export const PresensiDisiplinModule: React.FC<PresensiDisiplinProps> = ({
         </button>
       </div>
 
-      {/* View 1: Presensi Table */}
+      {/* View 1: Yearly Heatmap & Presensi Table */}
       {activeTab === 'presensi' ? (
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden">
+        <div className="space-y-4">
+          <YearlyAttendanceHeatmap
+            santri={santri}
+            presensiList={presensiList}
+          />
+
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
               <thead className="bg-neutral-950 text-neutral-400 border-b border-neutral-800 text-[11px]">
@@ -307,6 +312,7 @@ export const PresensiDisiplinModule: React.FC<PresensiDisiplinProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       ) : (

@@ -25,6 +25,7 @@ export const translations = {
     navKalender: 'Kalender & Jadwal',
     navStartupCenter: 'StartUp Center & Fasilitas',
     navBeasiswa: 'Peluang Beasiswa & Voucher',
+    navKlinikSyariah: 'Klinik Bisnis Syariah',
     navAI: 'Analitik AI Kaffah',
     navAdmin: 'Konsol Admin & Backup',
 
@@ -93,6 +94,7 @@ export const translations = {
     navKalender: 'Calendar & Timetable',
     navStartupCenter: 'StartUp Center & Facilities',
     navBeasiswa: 'Scholarships & Vouchers',
+    navKlinikSyariah: 'Sharia Business Clinic',
     navAI: 'AI Kaffah Analytics',
     navAdmin: 'Admin & Backup Console',
 
@@ -161,6 +163,7 @@ export const translations = {
     navKalender: 'التقويم وجداول المعهد',
     navStartupCenter: 'مركز الابتكار والمرافق الذكية',
     navBeasiswa: 'فرص المنح الدراسية والقسائم',
+    navKlinikSyariah: 'عيادة الأعمال الشرعية الذكية',
     navAI: 'التحليل الذكي المتكامل',
     navAdmin: 'لوحة التحكم والنسخ',
 

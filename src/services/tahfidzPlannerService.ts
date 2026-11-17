@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import {
   SantriProfile,
   TahfidzEntry,
@@ -7,6 +6,7 @@ import {
   WeeklyTahfidzPlanMilestone,
 } from '../types/pesantren';
 import { loadFromLocal, saveToLocal } from './storageService';
+import { postGeminiTask } from './geminiService';
 
 /**
  * Generates an AI-powered Tahfidz Planner plan for a santri.
@@ -156,69 +156,51 @@ export async function generateAITahfidzPlan(
     },
   };
 
-  // Try enhancing with Gemini 2.5 Flash if API Key is available
-  const apiKey =
-    import.meta.env.VITE_GEMINI_API_KEY ||
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
-    '';
+  // Enhance with server-side Gemini API
+  try {
+    const avgTajwid = tahfidzList.length
+      ? Math.round(tahfidzList.reduce((acc, c) => acc + c.tajwid, 0) / tahfidzList.length)
+      : 95;
 
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Anda adalah Pakar Kurikulum Tahfidz Al-Qur'an dan Musyrif Senior Pesantren Modern SantriCity.
-Tugas Anda: Buat strategi personalisasi AI Tahfidz Planner untuk santri berikut.
+    const parsed = await postGeminiTask<{
+      strategiMenghafal?: string;
+      metodeMurajaah?: string;
+      jadwalTikrarOptimal?: string;
+      nasihatPencegahanLupa?: string;
+      catatanUntukWali?: string;
+      catatanUntukMusyrif?: string;
+      tipsHafalanHariIni?: string;
+    }>('tahfidz-planner', {
+      santri,
+      currentCapaian,
+      targetJuz,
+      remainingJuz,
+      remainingDays,
+      totalEffectiveStudyDays,
+      avgTajwid,
+      requiredHalamanPerHari,
+      requiredBarisPerHari,
+    });
 
-Data Santri:
-- Nama: ${santri.nama} (${santri.kelas}, ${santri.asrama})
-- Capaian Hafalan Terkini: ${currentCapaian} Juz
-- Target Juz Semester Ini: ${targetJuz} Juz
-- Sisa Hafalan: ${remainingJuz} Juz
-- Sisa Hari Semester: ${remainingDays} Hari (${totalEffectiveStudyDays} hari aktif)
-- Rata-rata Skor Tajwid: ${tahfidzList.length ? Math.round(tahfidzList.reduce((acc, c) => acc + c.tajwid, 0) / tahfidzList.length) : 95}/100
-- Beban Rata-rata: ${requiredHalamanPerHari} Halaman per hari (${requiredBarisPerHari} baris/hari)
-
-Format Output JSON persis:
-{
-  "strategiMenghafal": "penjelasan strategi spesifik dan terukur 2-3 kalimat",
-  "metodeMurajaah": "panduan murajaah praktis 2 kalimat",
-  "jadwalTikrarOptimal": "panduan ritme waktu tikrar fajar, ashar, malam",
-  "nasihatPencegahanLupa": "kiat pencegahan lupa hafalan 1-2 kalimat",
-  "catatanUntukWali": "pesan motivasi dan pendampingan untuk orang tua 2 kalimat",
-  "catatanUntukMusyrif": "arahan bimbingan bagi ustaz musyrif halaqah 2 kalimat",
-  "tipsHafalanHariIni": "tips praktis untuk hari ini 1 kalimat"
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.strategiMenghafal) {
-        planResult = {
-          ...planResult,
-          todayGoal: {
-            ...planResult.todayGoal,
-            tipsHafalanHariIni: parsed.tipsHafalanHariIni || planResult.todayGoal.tipsHafalanHariIni,
-          },
-          aiRecommendations: {
-            strategiMenghafal: parsed.strategiMenghafal || planResult.aiRecommendations.strategiMenghafal,
-            metodeMurajaah: parsed.metodeMurajaah || planResult.aiRecommendations.metodeMurajaah,
-            jadwalTikrarOptimal: parsed.jadwalTikrarOptimal || planResult.aiRecommendations.jadwalTikrarOptimal,
-            nasihatPencegahanLupa: parsed.nasihatPencegahanLupa || planResult.aiRecommendations.nasihatPencegahanLupa,
-            catatanUntukWali: parsed.catatanUntukWali || planResult.aiRecommendations.catatanUntukWali,
-            catatanUntukMusyrif: parsed.catatanUntukMusyrif || planResult.aiRecommendations.catatanUntukMusyrif,
-          },
-        };
-      }
-    } catch {
-      // Deterministic planResult fallback is maintained
+    if (parsed.strategiMenghafal) {
+      planResult = {
+        ...planResult,
+        todayGoal: {
+          ...planResult.todayGoal,
+          tipsHafalanHariIni: parsed.tipsHafalanHariIni || planResult.todayGoal.tipsHafalanHariIni,
+        },
+        aiRecommendations: {
+          strategiMenghafal: parsed.strategiMenghafal || planResult.aiRecommendations.strategiMenghafal,
+          metodeMurajaah: parsed.metodeMurajaah || planResult.aiRecommendations.metodeMurajaah,
+          jadwalTikrarOptimal: parsed.jadwalTikrarOptimal || planResult.aiRecommendations.jadwalTikrarOptimal,
+          nasihatPencegahanLupa: parsed.nasihatPencegahanLupa || planResult.aiRecommendations.nasihatPencegahanLupa,
+          catatanUntukWali: parsed.catatanUntukWali || planResult.aiRecommendations.catatanUntukWali,
+          catatanUntukMusyrif: parsed.catatanUntukMusyrif || planResult.aiRecommendations.catatanUntukMusyrif,
+        },
+      };
     }
+  } catch (err) {
+    console.warn('Server AI Tahfidz Planner request failed, using deterministic baseline:', err);
   }
 
   // Persist plan to local storage

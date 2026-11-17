@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import {
   SantriProfile,
   TahfidzEntry,
@@ -28,6 +27,19 @@ import {
   AIDailyDigest,
 } from '../types/pesantren';
 
+export async function postGeminiTask<T>(task: string, payload: unknown): Promise<T> {
+  const response = await fetch(`/api/gemini/${task}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body?.error || `Permintaan AI server gagal (${response.status})`);
+  }
+  return body.data as T;
+}
+
 export async function analyzeSantriKaffah(
   santri: SantriProfile,
   tahfidz: TahfidzEntry[],
@@ -36,7 +48,6 @@ export async function analyzeSantriKaffah(
   disiplin: CatatanDisiplin[],
   kesehatan: RekamMedis[]
 ): Promise<AIAnalisisKaffah> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
 
   // Calculate quantitative baseline
   const avgNilai = nilai.length
@@ -76,61 +87,63 @@ export async function analyzeSantriKaffah(
     (basePilar.keaktifanSosial * 0.1)
   );
 
-  // If apiKey exists, request real AI evaluation from Gemini
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Sebagai pakar pedagogi pesantren dan psikolog pendidikan Islam di SantriCity, lakukan analisis evaluasi komprehensif (kaffah) untuk santri berikut:
-- Nama: ${santri.nama} (Kelas: ${santri.kelas}, Asrama: ${santri.asrama})
-- Capaian Tahfidz: ${santri.capaianJuz} / ${santri.targetJuz} Juz (Rata-rata tajwid: ${avgTajwid})
-- Nilai Rata-rata Akademik: ${avgNilai}
-- Poin Disiplin & Adab: ${santri.poinDisiplin} / 100 (Presensi: ${presensiScore}%)
-- Riwayat Kesehatan Terakhir: ${kesehatan.length ? kesehatan[0].diagnosa : 'Sehat prima'}
-- Catatan Prestasi / Prestasi Terakhir: ${disiplin.filter(d => d.jenis === 'Prestasi').map(p => p.deskripsi).join(', ') || 'Aktif'}
+  // Request real AI evaluation from server endpoint
+  try {
+    const parsed = await postGeminiTask<{
+      ringkasanKaffah?: string;
+      kekuatanUtama?: string[];
+      areaPengembangan?: string[];
+      rekomendasiWali?: string;
+      rekomendasiMusyrif?: string;
+      prediksiKelulusanTarget?: string;
+    }>('kaffah', {
+      santri,
+      avgTajwid,
+      avgNilai,
+      presensiScore,
+      latestDiagnosa: kesehatan.length ? kesehatan[0].diagnosa : 'Sehat prima',
+      prestasiSummary:
+        disiplin
+          .filter((d) => d.jenis === 'Prestasi')
+          .map((p) => p.deskripsi)
+          .join(', ') || 'Aktif',
+    });
 
-Format output dalam format JSON valid tanpa tanda markdown tambahan (jangan gunakan \`\`\`json):
-{
-  "ringkasanKaffah": "deskripsi naratif 2-3 kalimat perkembangan santri",
-  "kekuatanUtama": ["kekuatan 1", "kekuatan 2", "kekuatan 3"],
-  "areaPengembangan": ["area 1", "area 2"],
-  "rekomendasiWali": "pesan actionable untuk orang tua / wali santri",
-  "rekomendasiMusyrif": "arahan bimbingan bagi ustaz / musyrif asrama",
-  "prediksiKelulusanTarget": "proyeksi kelulusan tahfidz 30 juz dan target akademik"
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      // Clean JSON if needed
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      return {
-        santriId: santri.id,
-        skorHolistik,
-        pilar: basePilar,
-        ringkasanKaffah: parsed.ringkasanKaffah || 'Perkembangan santri sangat stabil dan berorientasi pada pencapaian kaffah.',
-        kekuatanUtama: parsed.kekuatanUtama || ['Ketekunan dalam ziyadah hafalan', 'Kedisiplinan ibadah jamaah'],
-        areaPengembangan: parsed.areaPengembangan || ['Menjaga kebugaran jasmani', 'Konsistensi murajaah di akhir pekan'],
-        rekomendasiWali: parsed.rekomendasiWali || 'Terus berikan motivasi spiritual dan afeksi berkala melalui saluran komunikasi pondok.',
-        rekomendasiMusyrif: parsed.rekomendasiMusyrif || 'Pertahankan bimbingan talaqqi personal dan pantau ritme istirahat ananda.',
-        prediksiKelulusanTarget: parsed.prediksiKelulusanTarget || `Target ${santri.targetJuz} Juz diproyeksikan tuntas tepat waktu insyaAllah.`,
-        terakhirDiperbarui: new Date().toLocaleDateString('id-ID', {
+    return {
+      santriId: santri.id,
+      skorHolistik,
+      pilar: basePilar,
+      ringkasanKaffah:
+        parsed.ringkasanKaffah ||
+        'Perkembangan santri sangat stabil dan berorientasi pada pencapaian kaffah.',
+      kekuatanUtama: parsed.kekuatanUtama || [
+        'Ketekunan dalam ziyadah hafalan',
+        'Kedisiplinan ibadah jamaah',
+      ],
+      areaPengembangan: parsed.areaPengembangan || [
+        'Menjaga kebugaran jasmani',
+        'Konsistensi murajaah di akhir pekan',
+      ],
+      rekomendasiWali:
+        parsed.rekomendasiWali ||
+        'Terus berikan motivasi spiritual dan afeksi berkala melalui saluran komunikasi pondok.',
+      rekomendasiMusyrif:
+        parsed.rekomendasiMusyrif ||
+        'Pertahankan bimbingan talaqqi personal dan pantau ritme istirahat ananda.',
+      prediksiKelulusanTarget:
+        parsed.prediksiKelulusanTarget ||
+        `Target ${santri.targetJuz} Juz diproyeksikan tuntas tepat waktu insyaAllah.`,
+      terakhirDiperbarui:
+        new Date().toLocaleDateString('id-ID', {
           day: 'numeric',
           month: 'long',
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
         }) + ' WIB',
-      };
-    } catch (err) {
-      console.warn('Gemini API call failed or timed out, using pedagogic rule engine:', err);
-    }
+    };
+  } catch (err) {
+    console.warn('Server Gemini Kaffah request failed, using pedagogic rule engine:', err);
   }
 
   // High-fidelity pedagogical rule engine fallback
@@ -165,8 +178,6 @@ export async function generateLearningRoadmap(
   santri: SantriProfile,
   nilaiList: NilaiMataPelajaran[]
 ): Promise<import('../types/pesantren').LearningRoadmap> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
   // Sort subjects by score ascending to identify areas needing reinforcement
   const sortedNilai = [...nilaiList].sort((a, b) => a.akhir - b.akhir);
   const lowestSubjects = sortedNilai.slice(0, 2);
@@ -176,78 +187,45 @@ export async function generateLearningRoadmap(
     .map(n => `- ${n.mapel} (${n.kode}, Kategori: ${n.kategori}): Nilai Akhir ${n.akhir}, Predikat ${n.predikat}. Catatan guru: "${n.catatan}"`)
     .join('\n');
 
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Sebagai pakar kurikulum kepesantrenan dan konsultan pedagogik Islam terpadu di SantriCity, buatlah rencana belajar terarah ("Learning Roadmap") untuk santri:
-- Nama: ${santri.nama} (Kelas: ${santri.kelas})
-- Target Akademik & Tahfidz: Capaian hafalan ${santri.capaianJuz}/${santri.targetJuz} Juz
-- Data Rekapitulasi Nilai Akademik Terkini:
-${formattedSubjectsSummary}
+  try {
+    const parsed = await postGeminiTask<{
+      ringkasanStrategi?: string;
+      fokusPrioritasUtama?: string;
+      topikRekomendasi?: any[];
+    }>('learning-roadmap', {
+      santri,
+      formattedSubjectsSummary,
+    });
 
-Tugas:
-Analisis kekuatan dan area mata pelajaran yang memerlukan akselerasi atau penguatan (terutama yang memiliki nilai lebih rendah atau predikat B+/B/C, sekaligus topik pengayaan untuk mata pelajaran unggulan). Hasilkan 3 sampai 5 topik pembelajaran spesifik yang sangat relevan dan aplikatif dalam format JSON murni tanpa markdown (jangan gunakan \`\`\`json):
-
-{
-  "ringkasanStrategi": "ringkasan strategi belajar naratif 2-3 kalimat yang memotivasi santri dan instruktif bagi asatidz",
-  "fokusPrioritasUtama": "fokus 1-2 bidang yang paling krusial untuk ditingkatkan dalam 4 pekan ke depan",
-  "topikRekomendasi": [
-    {
-      "id": "lr-1",
-      "subjectKode": "KODE_MAPEL",
-      "subjectMapel": "NAMA_MAPEL",
-      "topik": "Judul spesifik topik materi yang harus dipelajari",
-      "tingkatUrgensi": "Tinggi" | "Sedang" | "Pengayaan",
-      "alasanRekomendasi": "Mengapa santri membutuhkan topik ini berdasarkan data nilainya",
-      "targetKompetensi": "Kemampuan konkret yang harus dikuasai setelah belajar topik ini",
-      "durasiMinggu": 2,
-      "sumberRujukan": "Judul kitab kuning / modul rujukan pesantren / bab buku rujukan",
-      "status": "Rencana"
+    if (parsed.topikRekomendasi && Array.isArray(parsed.topikRekomendasi)) {
+      return {
+        santriId: santri.id,
+        tanggalDibuat: new Date().toISOString().slice(0, 10),
+        ringkasanStrategi: parsed.ringkasanStrategi || `Roadmap belajar adaptif untuk memaksimalkan keseimbangan pemahaman turats (kitab kuning) dan sains eksakta bagi ${santri.nama}.`,
+        fokusPrioritasUtama: parsed.fokusPrioritasUtama || `Penguatan kalkulus fisika sains dan pendalaman kaidah i'rab Nahwu terapan.`,
+        topikRekomendasi: parsed.topikRekomendasi.map((item: any, idx: number) => ({
+          id: item.id || `topic-${idx + 1}-${Date.now()}`,
+          subjectKode: item.subjectKode || (nilaiList[idx % nilaiList.length]?.kode || 'GEN-01'),
+          subjectMapel: item.subjectMapel || (nilaiList[idx % nilaiList.length]?.mapel || 'Mata Pelajaran'),
+          topik: item.topik || 'Topik Pendalaman Materi',
+          tingkatUrgensi: item.tingkatUrgensi || (idx === 0 ? 'Tinggi' : 'Sedang'),
+          alasanRekomendasi: item.alasanRekomendasi || 'Didasarkan pada evaluasi capaian tugas dan ujian semester terkini.',
+          targetKompetensi: item.targetKompetensi || 'Mampu menguasai pemecahan masalah dan argumentasi dalil secara mandiri.',
+          durasiMinggu: item.durasiMinggu || 2,
+          sumberRujukan: item.sumberRujukan || 'Kitab & Modul Kurikulum SantriCity',
+          status: 'Rencana',
+        })),
+        terakhirDiperbarui: new Date().toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }) + ' WIB',
+      };
     }
-  ]
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.topikRekomendasi && Array.isArray(parsed.topikRekomendasi)) {
-        return {
-          santriId: santri.id,
-          tanggalDibuat: new Date().toISOString().slice(0, 10),
-          ringkasanStrategi: parsed.ringkasanStrategi || `Roadmap belajar adaptif untuk memaksimalkan keseimbangan pemahaman turats (kitab kuning) dan sains eksakta bagi ${santri.nama}.`,
-          fokusPrioritasUtama: parsed.fokusPrioritasUtama || `Penguatan kalkulus fisika sains dan pendalaman kaidah i'rab Nahwu terapan.`,
-          topikRekomendasi: parsed.topikRekomendasi.map((item: any, idx: number) => ({
-            id: item.id || `topic-${idx + 1}-${Date.now()}`,
-            subjectKode: item.subjectKode || (nilaiList[idx % nilaiList.length]?.kode || 'GEN-01'),
-            subjectMapel: item.subjectMapel || (nilaiList[idx % nilaiList.length]?.mapel || 'Mata Pelajaran'),
-            topik: item.topik || 'Topik Pendalaman Materi',
-            tingkatUrgensi: item.tingkatUrgensi || (idx === 0 ? 'Tinggi' : 'Sedang'),
-            alasanRekomendasi: item.alasanRekomendasi || 'Didasarkan pada evaluasi capaian tugas dan ujian semester terkini.',
-            targetKompetensi: item.targetKompetensi || 'Mampu menguasai pemecahan masalah dan argumentasi dalil secara mandiri.',
-            durasiMinggu: item.durasiMinggu || 2,
-            sumberRujukan: item.sumberRujukan || 'Kitab & Modul Kurikulum SantriCity',
-            status: 'Rencana',
-          })),
-          terakhirDiperbarui: new Date().toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          }) + ' WIB',
-        };
-      }
-    } catch (err) {
-      console.warn('Gemini Learning Roadmap API failed, using pedagogical rule generator:', err);
-    }
+  } catch (err) {
+    console.warn('Server Gemini Learning Roadmap request failed, using pedagogical rule generator:', err);
   }
 
   // Fallback high-fidelity pedagogical rule engine based on actual student grades
@@ -366,10 +344,8 @@ export async function evaluateAcademicGoalProgress(
   goal: AcademicGoal,
   santri: SantriProfile,
   nilaiList: NilaiMataPelajaran[],
-  tahfidzList: TahfidzEntry[]
+  _tahfidzList: TahfidzEntry[]
 ): Promise<AcademicGoalAIFeedback> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
   const completedMilestones = goal.milestones.filter(m => m.isCompleted);
   const pendingMilestones = goal.milestones.filter(m => !m.isCompleted);
   const progressPct = goal.milestones.length > 0 
@@ -380,73 +356,56 @@ export async function evaluateAcademicGoalProgress(
     ? (nilaiList.reduce((acc, curr) => acc + curr.akhir, 0) / nilaiList.length).toFixed(1)
     : '85.0';
 
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Sebagai Konsultan Akademik dan Perencana Target Pendidikan Santri di SantriCity, lakukan evaluasi pelacakan progres AI (Progress Tracking against Milestones) untuk sasaran belajar jangka panjang santri:
+  try {
+    const milestonesSummary = goal.milestones
+      .map(
+        (m, i) =>
+          `${i + 1}. [${m.isCompleted ? 'SELESAI (' + (m.completedAt || '') + ')' : 'BELUM'}] ${m.title} (Target: ${m.targetDate})${m.notes ? ' - Catatan: ' + m.notes : ''}`
+      )
+      .join('\n');
 
-PROFIL SANTRI:
-- Nama: ${santri.nama} (Kelas: ${santri.kelas})
-- Capaian Tahfidz: ${santri.capaianJuz} / ${santri.targetJuz} Juz
-- Rata-rata Nilai Akademik: ${avgNilai}
+    const parsed = await postGeminiTask<{
+      summary?: string;
+      velocityAssessment?: AcademicGoalAIFeedback['velocityAssessment'];
+      confidenceScore?: number;
+      suggestedActions?: string[];
+      nextMilestoneToFocus?: string;
+    }>('goal-progress', {
+      santri,
+      avgNilai,
+      goal,
+      progressPct,
+      completedCount: completedMilestones.length,
+      milestonesSummary,
+    });
 
-TARGET SASARAN BELAJAR:
-- Judul Target: ${goal.title}
-- Kategori: ${goal.category}
-- Batas Waktu Akhir: ${goal.targetDeadline}
-- Deskripsi: ${goal.description}
-- Progres Saat Ini: ${progressPct}% (${completedMilestones.length} dari ${goal.milestones.length} milestone tercapai)
-
-DAFTAR TAHAPAN (MILESTONES):
-${goal.milestones.map((m, i) => `${i + 1}. [${m.isCompleted ? 'SELESAI (' + (m.completedAt || '') + ')' : 'BELUM'}] ${m.title} (Target: ${m.targetDate})${m.notes ? ' - Catatan: ' + m.notes : ''}`).join('\n')}
-
-TUGAS EVALUASI:
-Analisis kecepatan kemajuan santri (velocity), perbandingan dengan tanggal tenggat, dan kekuatan akademiknya. Hasilkan penilaian JSON murni tanpa markdown (tanpa \`\`\`json):
-{
-  "summary": "Analisis mendalam 2-3 kalimat mengenai kecepatan dan mutu capaian milestone santri saat ini",
-  "velocityAssessment": "On Track" | "Ahead of Schedule" | "Needs Acceleration" | "Critical Delay",
-  "confidenceScore": 88,
-  "suggestedActions": [
-    "Langkah konkret 1",
-    "Langkah konkret 2",
-    "Langkah konkret 3"
-  ],
-  "nextMilestoneToFocus": "Nama milestone terdekat yang harus menjadi fokus utama saat ini"
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.summary && parsed.velocityAssessment) {
-        return {
-          summary: parsed.summary,
-          velocityAssessment: parsed.velocityAssessment,
-          confidenceScore: Number(parsed.confidenceScore) || 85,
-          suggestedActions: Array.isArray(parsed.suggestedActions) ? parsed.suggestedActions : [
-            'Lanjutkan ritme hafalan dan evaluasi rutin bersama pembina.',
-            'Lakukan review berkala terhadap milestone yang belum tercapai.'
-          ],
-          nextMilestoneToFocus: parsed.nextMilestoneToFocus || (pendingMilestones[0]?.title || 'Target Akhir'),
-          lastEvaluatedAt: new Date().toLocaleDateString('id-ID', {
+    if (parsed.summary && parsed.velocityAssessment) {
+      return {
+        summary: parsed.summary,
+        velocityAssessment: parsed.velocityAssessment,
+        confidenceScore: Number(parsed.confidenceScore) || 85,
+        suggestedActions: Array.isArray(parsed.suggestedActions)
+          ? parsed.suggestedActions
+          : [
+              'Lanjutkan ritme hafalan dan evaluasi rutin bersama pembina.',
+              'Lakukan review berkala terhadap milestone yang belum tercapai.',
+            ],
+        nextMilestoneToFocus:
+          parsed.nextMilestoneToFocus ||
+          pendingMilestones[0]?.title ||
+          'Target Akhir',
+        lastEvaluatedAt:
+          new Date().toLocaleDateString('id-ID', {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
           }) + ' WIB',
-        };
-      }
-    } catch (err) {
-      console.warn('Gemini Academic Goal Tracking API failed, using rule engine:', err);
+      };
     }
+  } catch (err) {
+    console.warn('Server Gemini Academic Goal Tracking request failed, using rule engine:', err);
   }
 
   // Pedagogical Rule-based AI Engine Fallback
@@ -521,48 +480,23 @@ export async function suggestMilestonesForGoal(
   category: string,
   targetDeadline: string
 ): Promise<AcademicGoalMilestone[]> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Buatlah 4 sampai 5 tahapan (milestones) terukur, realistis, dan berurutan untuk sasaran akademik santri pesantren berikut:
-- Judul Sasaran: "${title}"
-- Kategori: ${category}
-- Target Tenggat Waktu: ${targetDeadline}
-
-Hasilkan array JSON murni tanpa markdown (tanpa \`\`\`json):
-[
-  {
-    "id": "ms-auto-1",
-    "title": "Deskripsi tahapan konkret yang harus diselesaikan",
-    "targetDate": "YYYY-MM-DD",
-    "isCompleted": false,
-    "notes": "Catatan singkat indikator keberhasilan"
-  }
-]
-`;
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item, idx) => ({
-          id: `ms-${Date.now()}-${idx}`,
-          title: item.title || `Tahapan ${idx + 1}`,
-          targetDate: item.targetDate || targetDeadline,
-          isCompleted: false,
-          notes: item.notes || '',
-        }));
-      }
-    } catch (err) {
-      console.warn('Gemini Suggest Milestones API failed, using standard template:', err);
+  try {
+    const parsed = await postGeminiTask<any[]>('suggest-milestones', {
+      title,
+      category,
+      targetDeadline,
+    });
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((item, idx) => ({
+        id: `ms-${Date.now()}-${idx}`,
+        title: item.title || `Tahapan ${idx + 1}`,
+        targetDate: item.targetDate || targetDeadline,
+        isCompleted: false,
+        notes: item.notes || '',
+      }));
     }
+  } catch (err) {
+    console.warn('Server Gemini Suggest Milestones request failed, using standard template:', err);
   }
 
   // Template fallback
@@ -603,8 +537,6 @@ export async function generateStudyPatternSummary(
   santri: SantriProfile,
   nilaiList: NilaiMataPelajaran[]
 ): Promise<StudyPatternSummary> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
   // Sort subjects by final score
   const sortedNilai = [...nilaiList].sort((a, b) => b.akhir - a.akhir);
   const avgOverall = nilaiList.length > 0
@@ -655,121 +587,47 @@ export async function generateStudyPatternSummary(
   const bestSlot = (slotAverages[0]?.slot || 'Subuh / Pagi Buta') as TimeOfDaySlot;
   const secondSlot = (slotAverages[1]?.slot || 'Sore (Halaqah Asar)') as TimeOfDaySlot;
 
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Sebagai Spesialis Psikologi Belajar dan Analis Pola Belajar Santri (Study Pattern Analyst) di Pondok Pesantren Digital:
-Lakukan analisis mendalam pola belajar (Study Pattern Analysis) untuk santri berikut berdasarkan histori nilai dan jadwal waktu belajar:
+  try {
+    const subjectsText = sortedNilai
+      .map(
+        (n) =>
+          `- [${n.kode}] ${n.mapel} (${n.kategori}): Nilai Akhir ${n.akhir} (Harian: ${n.harian}, Tugas: ${n.tugas}, UTS: ${n.uts}, UAS: ${n.uas}) | Waktu Belajar: ${n.waktuBelajarEfektif || 'Standard'}`
+      )
+      .join('\n');
+    const slotAveragesText = slotAverages
+      .map((s) => `- ${s.slot}: Rata-rata ${s.average.toFixed(1)} (${s.subjects.join(', ')})`)
+      .join('\n');
 
-DATA SANTRI:
-- Nama: ${santri.nama} (Kelas: ${santri.kelas})
-- Capaian Tahfidz: ${santri.capaianJuz} / ${santri.targetJuz} Juz
-- Nilai Rata-Rata Kumulatif: ${avgOverall}
+    const parsed = await postGeminiTask<any>('study-pattern', {
+      santri,
+      avgOverall,
+      subjectsText,
+      slotAveragesText,
+      bestSlot,
+      secondSlot,
+    });
 
-HISTORI NILAI MATA PELAJARAN:
-${sortedNilai
-  .map(
-    (n) =>
-      `- [${n.kode}] ${n.mapel} (${n.kategori}): Nilai Akhir ${n.akhir} (Harian: ${n.harian}, Tugas: ${n.tugas}, UTS: ${n.uts}, UAS: ${n.uas}) | Waktu Belajar: ${n.waktuBelajarEfektif || 'Standard'}`
-  )
-  .join('\n')}
-
-ANALISIS JADWAL RATA-RATA WAKTU:
-${slotAverages.map((s) => `- ${s.slot}: Rata-rata ${s.average.toFixed(1)} (${s.subjects.join(', ')})`).join('\n')}
-
-TUGAS ANDA:
-Identifikasi pola waktu terbaik (best times of day) dan mata pelajaran unggulan santri.
-Hasilkan output JSON murni tanpa markdown (tanpa \`\`\`json):
-{
-  "overallPeakTime": "${bestSlot}",
-  "secondaryPeakTime": "${secondSlot}",
-  "cognitivePace": "Reflektif & Analitis Mendalam" | "Cepat & Tangkas Terstruktur" | "Komprehensif Holistik",
-  "executiveSummary": "Ringkasan naratif 2-3 kalimat ilmiah mengenai korelasi waktu prima biologis (circadian rhythm) santri dan penguasaan subjek tertentu",
-  "topPerformingSubjects": [
-    {
-      "kode": "Kode",
-      "mapel": "Nama Mapel",
-      "kategori": "Agama" | "Umum" | "Bahasa",
-      "avgScore": 94.5,
-      "performanceTier": "Unggul / Mahir (Peak)",
-      "bestStudySlot": "${bestSlot}",
-      "recommendedTechnique": "Teknik spesifik misal: Active Recall & Murajaah Fajar",
-      "notes": "Alasan mengapa santri unggul di mata pelajaran ini"
+    if (parsed.overallPeakTime && parsed.executiveSummary && Array.isArray(parsed.topPerformingSubjects)) {
+      return {
+        santriId: santri.id,
+        overallPeakTime: parsed.overallPeakTime,
+        secondaryPeakTime: parsed.secondaryPeakTime || secondSlot,
+        cognitivePace: parsed.cognitivePace || 'Reflektif & Analitis Mendalam',
+        executiveSummary: parsed.executiveSummary,
+        topPerformingSubjects: parsed.topPerformingSubjects,
+        growthOpportunitySubjects: parsed.growthOpportunitySubjects || [],
+        timeSlotRecommendations: Array.isArray(parsed.timeSlotRecommendations) ? parsed.timeSlotRecommendations : [],
+        generatedAt: new Date().toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }) + ' WIB',
+      };
     }
-  ],
-  "growthOpportunitySubjects": [
-    {
-      "kode": "Kode",
-      "mapel": "Nama Mapel",
-      "kategori": "Agama" | "Umum" | "Bahasa",
-      "avgScore": 87.2,
-      "performanceTier": "Perlu Pendampingan",
-      "bestStudySlot": "Pagi (Sekolah Formal)",
-      "recommendedTechnique": "Teknik spesifik misal: Spaced Repetition & Tutorial Sebaya",
-      "notes": "Potensi akselerasi bila dipindahkan atau diperkuat pada jam tertentu"
-    }
-  ],
-  "timeSlotRecommendations": [
-    {
-      "slot": "Subuh / Pagi Buta",
-      "energyLevel": "Tinggi (Peak Focus)",
-      "recommendedSubjects": ["Nahwu & Sharaf", "Hadits Tematik"],
-      "productivityTip": "Kondisi kortisol dan ketenangan fajar sangat ideal untuk menghafal bait matan dan matan hadits."
-    },
-    {
-      "slot": "Pagi (Sekolah Formal)",
-      "energyLevel": "Sedang (Optimal)",
-      "recommendedSubjects": ["Matematika", "Fisika Terapan"],
-      "productivityTip": "Kapasitas kalkulasi logika bekerja maksimal di jam pagi dengan pencahayaan alami."
-    },
-    {
-      "slot": "Sore (Halaqah Asar)",
-      "energyLevel": "Tinggi (Peak Focus)",
-      "recommendedSubjects": ["English for Islamic Scholar", "Muhadatsah"],
-      "productivityTip": "Suasana interaktif sangat mendukung latihan kelancaran berbicara dan diskusi bahasa asing."
-    },
-    {
-      "slot": "Malam (Ba'da Maghrib & Belajar Mandiri)",
-      "energyLevel": "Ringan (Review & Murajaah)",
-      "recommendedSubjects": ["Fiqih Muamalat", "Muthala'ah"],
-      "productivityTip": "Gunakan teknik pemetaan konsep (mind mapping) dan review santai sebelum istirahat tidur."
-    }
-  ]
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.overallPeakTime && parsed.executiveSummary && Array.isArray(parsed.topPerformingSubjects)) {
-        return {
-          santriId: santri.id,
-          overallPeakTime: parsed.overallPeakTime,
-          secondaryPeakTime: parsed.secondaryPeakTime || secondSlot,
-          cognitivePace: parsed.cognitivePace || 'Reflektif & Analitis Mendalam',
-          executiveSummary: parsed.executiveSummary,
-          topPerformingSubjects: parsed.topPerformingSubjects,
-          growthOpportunitySubjects: parsed.growthOpportunitySubjects || [],
-          timeSlotRecommendations: Array.isArray(parsed.timeSlotRecommendations) ? parsed.timeSlotRecommendations : [],
-          generatedAt: new Date().toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          }) + ' WIB',
-        };
-      }
-    } catch (err) {
-      console.warn('Gemini Study Pattern API failed, using rule-based synthesis:', err);
-    }
+  } catch (err) {
+    console.warn('Server Gemini Study Pattern request failed, using rule-based synthesis:', err);
   }
 
   // Pedagogical Rule-Based Fallback Synthesis
@@ -856,75 +714,29 @@ export async function askTutorBotAI(
   quizQuestions?: QuizQuestionItem[];
   kitabReference?: string;
 }> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
+  try {
+    const parsed = await postGeminiTask<{
+      text?: string;
+      summaryPoints?: string[];
+      quizQuestions?: QuizQuestionItem[];
+      kitabReference?: string;
+    }>('tutor-bot', {
+      question,
+      mode,
+      selectedSubject,
+      santri,
+    });
 
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Anda adalah "Ustaz AI Tutor" di Pondok Pesantren Digital SantriCity 313.
-Tugas Anda mendampingi santri secara interaktif untuk memahami materi pelajaran kurikulum pesantren dan sains modern.
-
-PROFIL SANTRI:
-- Nama: ${santri.nama} (Kelas: ${santri.kelas})
-- Mata Pelajaran: ${selectedSubject.mapel} (${selectedSubject.kode} - Kategori: ${selectedSubject.kategori})
-- Guru Pengampu: ${selectedSubject.guru}
-- Nilai Terakhir: ${selectedSubject.akhir} (Predikat: ${selectedSubject.predikat})
-
-MODE PERMINTAAN: ${mode.toUpperCase()}
-PERTANYAAN / TOPIK SANTRI:
-"${question}"
-
-INSTRUKSI KHUSUS BERDASARKAN MODE:
-1. JIKA MODE = 'explain' (Penjelasan Konseptual):
-   Berikan penjelasan yang mendalam, ramah, dan mudah dipahami, sertakan contoh analogi praktis, kaidah atau dalil/rumus terkait, serta rujukan kitab/buku ajar.
-2. JIKA MODE = 'summary' (Ringkasan Materi & Poin Kunci):
-   Berikan ikhtisar padat dengan format "summaryPoints" berisi 3-5 butir poin inti materi yang esensial untuk dihafalkan/dipahami.
-3. JIKA MODE = 'quiz' (Kuis Latihan Pemahaman):
-   Hasilkan 2 sampai 3 soal pilihan ganda latihan interaktif ("quizQuestions") lengkap dengan 4 opsi, index jawaban benar (0-3), dan penjelasan/pembahasan mendalam.
-
-Keluarkan respon HANYA dalam bentuk format JSON murni tanpa markdown (tanpa \`\`\`json):
-{
-  "text": "Jawaban utama / penjelasan pembuka dari Ustaz AI Tutor...",
-  "kitabReference": "Kitab / buku referensi (misal: Alfiyah Ibnu Malik Bab Kalam / Fisika Halliday Resnick)",
-  "summaryPoints": [
-    "Poin kunci 1...",
-    "Poin kunci 2..."
-  ],
-  "quizQuestions": [
-    {
-      "id": "q1",
-      "question": "Pertanyaan kuis...",
-      "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-      "correctOptionIndex": 1,
-      "explanation": "Pembahasan mengapa jawaban ini benar...",
-      "dalilOrReference": "Bait Alfiyah / Dalil Al-Qur'an / Teorema"
+    if (parsed.text) {
+      return {
+        text: parsed.text,
+        summaryPoints: Array.isArray(parsed.summaryPoints) ? parsed.summaryPoints : undefined,
+        quizQuestions: Array.isArray(parsed.quizQuestions) ? parsed.quizQuestions : undefined,
+        kitabReference: parsed.kitabReference || `${selectedSubject.mapel} Modul Pesantren`,
+      };
     }
-  ]
-}
-`;
-
-      // Use gemini-3.1-flash-lite or gemini-flash-latest to prevent model quota constraints
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.text) {
-        return {
-          text: parsed.text,
-          summaryPoints: Array.isArray(parsed.summaryPoints) ? parsed.summaryPoints : undefined,
-          quizQuestions: Array.isArray(parsed.quizQuestions) ? parsed.quizQuestions : undefined,
-          kitabReference: parsed.kitabReference || `${selectedSubject.mapel} Modul Pesantren`,
-        };
-      }
-    } catch (err) {
-      console.warn('Gemini TutorBot API failed, using rule-based educational synthesis:', err);
-    }
+  } catch (err) {
+    console.warn('Server Gemini TutorBot request failed, using rule-based educational synthesis:', err);
   }
 
   // Educational Pedagogical Fallback Engine based on Subject & Mode
@@ -1041,75 +853,22 @@ export async function generateNextLessonRecommendations(
   santri: SantriProfile,
   nilaiList: NilaiMataPelajaran[]
 ): Promise<NextLessonBatchRecommendation> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
   // Sort subjects by score ascending (lowest first) to prioritize curriculum gaps
   const sortedNilai = [...nilaiList].sort((a, b) => a.akhir - b.akhir);
 
-  if (apiKey && sortedNilai.length > 0) {
+  if (sortedNilai.length > 0) {
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Anda adalah Kepala Kurikulum & Pedagogi AI Pondok Pesantren Digital SantriCity 313.
-Tugas Anda: Menganalisis nilai asesmen santri (Ulangan Harian, Tugas, UTS, UAS, Nilai Akhir) untuk mendiagnosis "Curriculum Gaps" (kesenjangan kurikulum) dan merekomendasikan "Next Lesson" (topik spesifik berikutnya yang harus dipelajari).
+      const sortedNilaiText = sortedNilai
+        .map(
+          (n, idx) =>
+            `${idx + 1}. [${n.kode}] ${n.mapel} (${n.kategori}): Akhir=${n.akhir}, Harian=${n.harian}, Tugas=${n.tugas}, UTS=${n.uts}, UAS=${n.uas}, Predikat=${n.predikat}. Catatan Guru: "${n.catatan || '-'}"`
+        )
+        .join('\n');
 
-PROFIL SANTRI:
-- Nama: ${santri.nama}
-- Kelas: ${santri.kelas}
-
-DATA ASESMEN TERBARU SANTRI:
-${sortedNilai
-  .map(
-    (n, idx) =>
-      `${idx + 1}. [${n.kode}] ${n.mapel} (${n.kategori}): Akhir=${n.akhir}, Harian=${n.harian}, Tugas=${n.tugas}, UTS=${n.uts}, UAS=${n.uas}, Predikat=${n.predikat}. Catatan Guru: "${n.catatan || '-'}"`
-  )
-  .join('\n')}
-
-INSTRUKSI:
-1. Analisis kesenjangan konsep (curriculum gaps) berdasarkan disparitas nilai harian vs ujian, nilai terendah vs target kelulusan santri.
-2. Klasifikasikan jenis celah kurikulum:
-   - "Kesenjangan Konsep (Curriculum Gap)" jika ada topik prasyarat yang belum matang
-   - "Penguatan Fondasi (Remedial & Drill)" jika nilai di bawah 80 atau nilai tugas tertinggal
-   - "Akselerasi Pengayaan (Advanced Mastery)" jika nilai sudah 90+ dan siap melangkah ke materi tingkat tinggi
-3. Berikan 3 hingga 5 rekomendasi pelajaran berikutnya (Next Lessons) berurutan berdasarkan prioritas urgensi.
-4. Setiap pelajaran harus memiliki topik spesifik, sasaran kompetensi, konsep inti, celah prasyarat yang dideteksi, kitab/buku ajar rujukan, estimasi durasi belajar, dan prompt latihan untuk Tutor Bot.
-
-KELUARKAN HANYA JSON MURNI (tanpa tag markdown \`\`\`json):
-{
-  "overallDiagnosis": "Diagnosis komprehensif kurikulum santri...",
-  "primaryCurriculumGapSummary": "Ringkasan kesenjangan kurikulum utama...",
-  "weeklyPacingAdvice": "Nasihat ritme belajar mingguan...",
-  "recommendedLessons": [
-    {
-      "id": "nl-1",
-      "subjectKode": "kode mapel",
-      "subjectMapel": "nama mapel",
-      "kategori": "Agama",
-      "currentScore": 87.2,
-      "scoreStatus": "Perlu Pemantapan",
-      "gapType": "Kesenjangan Konsep (Curriculum Gap)",
-      "topicTitle": "Topik spesifik pelajaran berikutnya",
-      "lessonObjective": "Sasaran kompetensi...",
-      "coreConcepts": ["Konsep 1", "Konsep 2", "Konsep 3"],
-      "prerequisiteGaps": ["Celah pemahaman yang terdeteksi dari asesmen"],
-      "recommendedKitabOrResource": "Kitab / Buku Ajar & Bab",
-      "estimatedStudyMinutes": 45,
-      "priorityOrder": 1,
-      "suggestedAction": "Langkah praktis belajar",
-      "practicePrompt": "Pertanyaan kuis atau prompt untuk ditanyakan ke Tutor Bot AI"
-    }
-  ]
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
-        contents: prompt,
+      const parsed = await postGeminiTask<any>('next-lessons', {
+        santri,
+        sortedNilaiText,
       });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
 
       if (parsed.recommendedLessons && Array.isArray(parsed.recommendedLessons)) {
         return {
@@ -1133,7 +892,7 @@ KELUARKAN HANYA JSON MURNI (tanpa tag markdown \`\`\`json):
         };
       }
     } catch (err) {
-      console.warn('Gemini NextLesson API failed, falling back to rule-based pedagogy engine:', err);
+      console.warn('Server Gemini NextLesson request failed, falling back to rule-based pedagogy engine:', err);
     }
   }
 
@@ -1455,8 +1214,6 @@ export async function generateSmartStudyTimetable(
   pendingGoals: AcademicGoal[] = [],
   nilaiList: NilaiMataPelajaran[] = []
 ): Promise<SmartStudyTimetable> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
   const peakSlot = studyPattern?.overallPeakTime || 'Subuh / Pagi Buta';
   const secondarySlot = studyPattern?.secondaryPeakTime || 'Malam (Ba\'da Maghrib & Belajar Mandiri)';
 
@@ -1479,113 +1236,57 @@ export async function generateSmartStudyTimetable(
   const sortedNilai = [...nilaiList].sort((a, b) => a.akhir - b.akhir);
   const gapSubjects = sortedNilai.slice(0, 3);
 
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Anda adalah Kepala Sistem Penjadwalan Cerdas AI (Smart Scheduler) Pondok Pesantren Digital SantriCity 313.
-Tugas Anda: Membuat jadwal belajar mingguan yang sangat personal (personalized weekly study timetable) untuk santri, mengintegrasikan secara harmonis antara 'Study Pattern' (kronobiologi jam prima) dan 'Target Sasaran Akademik Pending' (Academic Goals & Milestones).
+  try {
+    const pendingMilestonesText =
+      pendingMilestonesList.length > 0
+        ? pendingMilestonesList
+            .map((m, i) => `${i + 1}. [${m.category}] ${m.goalTitle} -> Milestone: "${m.milestoneTitle}" (Target: ${m.targetDate})`)
+            .join('\n')
+        : '- Menyelesaikan review hafalan dan pemantapan kurikulum';
+    const gapSubjectsText = gapSubjects
+      .map(g => `- [${g.kode}] ${g.mapel} (Nilai Akhir: ${g.akhir}, UTS: ${g.uts})`)
+      .join('\n');
 
-PROFIL SANTRI:
-- Nama: ${santri.nama}
-- Kelas: ${santri.kelas}
-- Pola Jam Belajar Prima (Peak Focus Slot): ${peakSlot}
-- Jam Belajar Sekunder (Secondary Slot): ${secondarySlot}
-- Gaya Kognitif: ${studyPattern?.cognitivePace || 'Komprehensif Holistik'}
+    const parsed = await postGeminiTask<any>('smart-timetable', {
+      santri,
+      peakSlot,
+      secondarySlot,
+      cognitivePace: studyPattern?.cognitivePace || 'Komprehensif Holistik',
+      pendingMilestonesText,
+      gapSubjectsText,
+    });
 
-TARGET AKADEMIK PENDING SANTRI (GOALS & MILESTONES):
-${pendingMilestonesList.length > 0
-  ? pendingMilestonesList.map((m, i) => `${i + 1}. [${m.category}] ${m.goalTitle} -> Milestone: "${m.milestoneTitle}" (Target: ${m.targetDate})`).join('\n')
-  : '- Menyelesaikan review hafalan dan pemantapan kurikulum'}
-
-MATA PELAJARAN DENGAN KESENJANGAN KURIKULUM (GAP PRIORITAS):
-${gapSubjects.map(g => `- [${g.kode}] ${g.mapel} (Nilai Akhir: ${g.akhir}, UTS: ${g.uts})`).join('\n')}
-
-ATURAN PENJADWALAN PESANTREN:
-1. Hari mencakup 7 hari penuh: 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Ahad'.
-2. Sesi harian disesuaikan dengan ritme pesantren:
-   - Subuh / Pagi Buta (05:15 - 06:15 WIB) -> Cocok untuk hafalan mutqin / tahfidz / kaidah qawaid berat saat otak segar.
-   - Pagi (Sekolah Formal) (07:00 - 11:30 WIB) -> Pembelajaran kelas madrasah.
-   - Siang / Ba'da Dzuhur (13:30 - 14:30 WIB) -> Kajian ringan / istirahat qailulah / diskusi sebaya.
-   - Sore (Halaqah Asar) (16:15 - 17:15 WIB) -> Halaqah Al-Qur'an / olahraga santri / sains interaktif.
-   - Malam (Ba'da Maghrib & Belajar Mandiri) (19:45 - 21:15 WIB) -> Belajar mandiri kitab, latihan soal drill, bedah kasus.
-3. Tempatkan target akademik yang paling sulit atau milestone prioritas pada jam prima santri (${peakSlot}).
-4. Tempatkan perbaikan mata pelajaran kurikulum gap pada jam sekunder (${secondarySlot}).
-5. Buat 2 hingga 3 slot belajar mandiri per hari (total sekitar 14-18 slot dalam seminggu).
-6. Sertakan teknik belajar spesifik (Feynman Technique, Sima'an Berpasangan, Active Recall, Pomodoro 25/5, dll).
-
-KELUARKAN HANYA JSON MURNI (tanpa tag markdown \`\`\`json):
-{
-  "overallStrategy": "Penjelasan ringkas strategi jadwal mingguan...",
-  "totalWeeklyStudyHours": 16.5,
-  "goalAlignmentRate": 96,
-  "chronobiologyAlignmentRate": 98,
-  "smartTips": [
-    "Tips praktis 1...",
-    "Tips praktis 2...",
-    "Tips praktis 3..."
-  ],
-  "slots": [
-    {
-      "id": "slot-1",
-      "day": "Senin",
-      "timeSlot": "Subuh / Pagi Buta",
-      "timeRange": "05:15 - 06:15 WIB",
-      "focusType": "Target Sasaran Akademik (Pending Goal)",
-      "subjectOrGoalTitle": "Nama topik atau goal",
-      "subjectKode": "AR-01",
-      "linkedGoalTitle": "Judul Goal jika relevan",
-      "linkedMilestoneTitle": "Judul Milestone jika relevan",
-      "taskDescription": "Aktivitas spesifik yang dikerjakan",
-      "recommendedTechnique": "Teknik belajar yang disarankan",
-      "targetDurationMinutes": 60,
-      "energyAlignment": "Sangat Selaras (Peak Focus Match)"
+    if (parsed.slots && Array.isArray(parsed.slots)) {
+      return {
+        santriId: santri.id,
+        generatedAt: new Date().toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }) + ' WIB',
+        weekLabel: 'Jadwal Belajar Personal Pekanan (AI Smart Timetable)',
+        overallStrategy: parsed.overallStrategy || 'Jadwal disusun otomatis menyelaraskan jam prima kognitif santri dengan target milestone pending.',
+        peakSlotUtilized: peakSlot,
+        secondaryPeakSlotUtilized: secondarySlot,
+        totalWeeklyStudyHours: parsed.totalWeeklyStudyHours || 16.5,
+        goalAlignmentRate: parsed.goalAlignmentRate || 95,
+        chronobiologyAlignmentRate: parsed.chronobiologyAlignmentRate || 97,
+        smartTips: parsed.smartTips || [
+          'Manfaatkan 30 menit pertama ba\'da subuh saat kortisol alami mendukung retensi memori jangka panjang.',
+          'Beri jeda 10 menit setiap 45 menit belajar mandiri untuk menjaga ketajaman konsentrasi.',
+          'Lakukan evaluasi pemahaman dengan bertanya pada Tutor Bot AI sebelum tidur.'
+        ],
+        slots: parsed.slots.map((s: any, idx: number) => ({
+          ...s,
+          id: s.id || `slot-${Date.now()}-${idx}`,
+          isCompleted: false,
+        })),
+      };
     }
-  ]
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.slots && Array.isArray(parsed.slots)) {
-        return {
-          santriId: santri.id,
-          generatedAt: new Date().toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          }) + ' WIB',
-          weekLabel: 'Jadwal Belajar Personal Pekanan (AI Smart Timetable)',
-          overallStrategy: parsed.overallStrategy || 'Jadwal disusun otomatis menyelaraskan jam prima kognitif santri dengan target milestone pending.',
-          peakSlotUtilized: peakSlot,
-          secondaryPeakSlotUtilized: secondarySlot,
-          totalWeeklyStudyHours: parsed.totalWeeklyStudyHours || 16.5,
-          goalAlignmentRate: parsed.goalAlignmentRate || 95,
-          chronobiologyAlignmentRate: parsed.chronobiologyAlignmentRate || 97,
-          smartTips: parsed.smartTips || [
-            'Manfaatkan 30 menit pertama ba\'da subuh saat kortisol alami mendukung retensi memori jangka panjang.',
-            'Beri jeda 10 menit setiap 45 menit belajar mandiri untuk menjaga ketajaman konsentrasi.',
-            'Lakukan evaluasi pemahaman dengan bertanya pada Tutor Bot AI sebelum tidur.'
-          ],
-          slots: parsed.slots.map((s: any, idx: number) => ({
-            ...s,
-            id: s.id || `slot-${Date.now()}-${idx}`,
-            isCompleted: false,
-          })),
-        };
-      }
-    } catch (err) {
-      console.warn('Gemini SmartScheduler failed, using pedagogical rule-based scheduler engine:', err);
-    }
+  } catch (err) {
+    console.warn('Server Gemini SmartScheduler request failed, using pedagogical rule-based scheduler engine:', err);
   }
 
   // Robust Pedagogical Rule-Based Smart Scheduler Engine
@@ -1793,11 +1494,6 @@ export async function generateAIDailyDigest(
   nilaiList: NilaiMataPelajaran[],
   tahfidzList: TahfidzEntry[]
 ): Promise<AIDailyDigest> {
-  const apiKey =
-    import.meta.env.VITE_GEMINI_API_KEY ||
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
-    '';
-
   const todayStr = '2026-09-29';
   const hijriStr = '18 Rabi\'ul Awwal 1448 H';
 
@@ -1930,73 +1626,50 @@ export async function generateAIDailyDigest(
       "Tuntaskan review materi Nahwu bab tarkib i'rab malam ini dan siapkan setoran lanjutan surah berikutnya ba'da Subuh esok.",
   };
 
-  // If Gemini API is configured, request real-time personalized synthesis
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-Sebagai Asisten AI Pesantren Terpadu di SantriCity, buatkan 'AI Daily Digest' (Rangkuman Harian Pintar) untuk santri berikut pada tanggal ${todayStr} (${hijriStr}):
-- Nama Santri: ${santri.nama} (Kelas: ${santri.kelas}, Asrama: ${santri.asrama}, Kamar: ${santri.kamar})
-- Presensi 7 Sesi Hari Ini: Subuh (${todayPresensi.subuh}), Dhuha (${todayPresensi.dhuha}), KBM Pagi (${todayPresensi.sekolahPagi}), Ashar (${todayPresensi.ashar}), Halaqah Sore (${todayPresensi.halaqahSore}), Maghrib-Isya (${todayPresensi.maghribIsya}), Belajar Malam (${todayPresensi.belajarMalam})
-- Catatan Musyrif Hari Ini: "${todayPresensi.keterangan || '-'}"
-- Status Kesehatan Poskestren: Kondisi ${healthStatus}, Tanda Vital (${vitalsText}), Alergi (${allergiesText})
-- Prestasi Akademik Terkini: Nilai Unggulan: ${topSubjects}, Tahfidz Terakhir: ${tahfidzSummary} (Capaian: ${santri.capaianJuz}/${santri.targetJuz} Juz)
+  // Request personalized synthesis from server Gemini endpoint
+  try {
+    const parsed = await postGeminiTask<any>('daily-digest', {
+      santri,
+      todayStr,
+      hijriStr,
+      todayPresensi,
+      healthStatus,
+      vitalsText,
+      allergiesText,
+      topSubjects,
+      tahfidzSummary,
+    });
 
-Hasilkan respon HANYA dalam format JSON valid (tanpa bungkus markdown \`\`\`json):
-{
-  "headline": "Satu kalimat rangkuman eksekutif capaian hari ini",
-  "readinessScore": 96,
-  "readinessStatus": "Sangat Prima & Fokus",
-  "prayerHighlights": "Uraian 1-2 kalimat tentang ketepatan sholat dan ibadah hari ini",
-  "healthRecommendation": "Saran pemeliharaan kesehatan / istirahat sunnah 1 kalimat",
-  "academicKeyAchievement": "Capaian akademik dan tahfidz utama hari ini",
-  "perspectiveWali": "Pesan hangat, informatif, dan menenangkan untuk orang tua / wali santri (2-3 kalimat)",
-  "perspectiveSantri": "Pesan afirmasi, refleksi diri, dan motivasi belajar untuk santri (2 kalimat)",
-  "perspectiveUstaz": "Catatan bimbingan pedagogis dan adab bagi ustaz / musyrif (2 kalimat)",
-  "actionableNextStep": "Langkah aksi konkrit santri berikutnya untuk sesi malam atau esok pagi"
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text || '';
-      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.headline) {
-        digestResult = {
-          ...digestResult,
-          overallReadiness: {
-            status: parsed.readinessStatus || digestResult.overallReadiness.status,
-            score: parsed.readinessScore || digestResult.overallReadiness.score,
-            headline: parsed.headline || digestResult.overallReadiness.headline,
-          },
-          prayerTakeaways: {
-            ...digestResult.prayerTakeaways,
-            highlights: parsed.prayerHighlights || digestResult.prayerTakeaways.highlights,
-          },
-          healthTakeaways: {
-            ...digestResult.healthTakeaways,
-            recommendation: parsed.healthRecommendation || digestResult.healthTakeaways.recommendation,
-          },
-          academicTakeaways: {
-            ...digestResult.academicTakeaways,
-            keyAchievement: parsed.academicKeyAchievement || digestResult.academicTakeaways.keyAchievement,
-          },
-          perspectives: {
-            wali: parsed.perspectiveWali || digestResult.perspectives.wali,
-            santri: parsed.perspectiveSantri || digestResult.perspectives.santri,
-            ustaz: parsed.perspectiveUstaz || digestResult.perspectives.ustaz,
-          },
-          actionableNextStep: parsed.actionableNextStep || digestResult.actionableNextStep,
-        };
-      }
-    } catch {
-      // Fallback is already initialized in digestResult
+    if (parsed.headline) {
+      digestResult = {
+        ...digestResult,
+        overallReadiness: {
+          status: parsed.readinessStatus || digestResult.overallReadiness.status,
+          score: parsed.readinessScore || digestResult.overallReadiness.score,
+          headline: parsed.headline || digestResult.overallReadiness.headline,
+        },
+        prayerTakeaways: {
+          ...digestResult.prayerTakeaways,
+          highlights: parsed.prayerHighlights || digestResult.prayerTakeaways.highlights,
+        },
+        healthTakeaways: {
+          ...digestResult.healthTakeaways,
+          recommendation: parsed.healthRecommendation || digestResult.healthTakeaways.recommendation,
+        },
+        academicTakeaways: {
+          ...digestResult.academicTakeaways,
+          keyAchievement: parsed.academicKeyAchievement || digestResult.academicTakeaways.keyAchievement,
+        },
+        perspectives: {
+          wali: parsed.perspectiveWali || digestResult.perspectives.wali,
+          santri: parsed.perspectiveSantri || digestResult.perspectives.santri,
+          ustaz: parsed.perspectiveUstaz || digestResult.perspectives.ustaz,
+        },
+        actionableNextStep: parsed.actionableNextStep || digestResult.actionableNextStep,
+      };
     }
+  } catch (err) {
+    console.warn('Server Gemini Daily Digest request failed, using deterministic digest baseline:', err);
   }
 
   return digestResult;

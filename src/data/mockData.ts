@@ -17,6 +17,8 @@ import {
   ScholarshipProgram,
   ScholarshipVoucher,
   ScholarshipApplication,
+  ShariaBusinessClinicCase,
+  ShariaConsultationSession,
 } from '../types/pesantren';
 
 export const INITIAL_SANTRI_LIST: SantriProfile[] = [
@@ -1233,5 +1235,106 @@ export const INITIAL_SCHOLARSHIP_APPLICATIONS: ScholarshipApplication[] = [
     status: 'Seleksi Berkas',
   },
 ];
+
+export const INITIAL_SHARIA_BUSINESS_CASES: ShariaBusinessClinicCase[] = [
+  {
+    id: 'biz-001',
+    santriId: 'snt-001',
+    santriNama: 'Muhammad Fayyadh Al-Hafidz',
+    namaUsaha: 'Barokah Smart Hydroponics & IoT',
+    sektor: 'Agribisnis & Hidroponik',
+    akadUtama: 'Mudharabah',
+    omzetBulananRp: 14500000,
+    modalBerjalanRp: 8000000,
+    marginHalalPersen: 28,
+    skorKepatuhanSyariah: 96,
+    statusSertifikasiHalal: 'Tersertifikasi Halal BPJPH',
+    statusZakatUsaha: 'Infaq Produktif',
+    kendalaUtama:
+      'Penyusunan perjanjian tertulis nisbah bagi hasil (60:40) antara pengelola santri dan pemodal wakaf produktif.',
+    statusKlinik: 'Aktif Inkubasi',
+  },
+  {
+    id: 'biz-002',
+    santriId: 'snt-002',
+    santriNama: 'Siti Aisyah Nurul Jannah',
+    namaUsaha: 'Khadijah Halal Pastry & Bakery',
+    sektor: 'Kuliner & Produk Halal',
+    akadUtama: 'Salam / Istishna',
+    omzetBulananRp: 11200000,
+    modalBerjalanRp: 5500000,
+    marginHalalPersen: 32,
+    skorKepatuhanSyariah: 94,
+    statusSertifikasiHalal: 'Proses Audit LPPOM',
+    statusZakatUsaha: 'Infaq Produktif',
+    kendalaUtama:
+      'Standardisasi akad pre-order (Istishna) katering acara wali santri agar spesifikasi dan waktu serah jelas tanpa gharar.',
+    statusKlinik: 'Aktif Inkubasi',
+  },
+  {
+    id: 'biz-003',
+    santriId: 'snt-003',
+    santriNama: 'Ahmad Raihan Habibi',
+    namaUsaha: 'Kopi & Kitab Creative Merchandise',
+    sektor: 'Kriya & Busana Muslim',
+    akadUtama: 'Murabahah',
+    omzetBulananRp: 9600000,
+    modalBerjalanRp: 4800000,
+    marginHalalPersen: 24,
+    skorKepatuhanSyariah: 91,
+    statusSertifikasiHalal: 'Siap Pengajuan',
+    statusZakatUsaha: 'Menuju Nishab',
+    kendalaUtama:
+      'Pemisahan pembukuan kas usaha dan kas pribadi serta penetapan margin Murabahah yang adil untuk koperasi pesantren.',
+    statusKlinik: 'Menunggu Sesi Konsultasi',
+  },
+  {
+    id: 'biz-004',
+    santriId: 'snt-001',
+    santriNama: 'Muhammad Fayyadh Al-Hafidz',
+    namaUsaha: 'SantriCode EdTech & Jasa Media Dakwah',
+    sektor: 'Teknologi & EdTech',
+    akadUtama: 'Wakalah bil Ujrah',
+    omzetBulananRp: 16800000,
+    modalBerjalanRp: 6000000,
+    marginHalalPersen: 35,
+    skorKepatuhanSyariah: 98,
+    statusSertifikasiHalal: 'Tersertifikasi Halal BPJPH',
+    statusZakatUsaha: 'Tunaikan Zakat 2.5%',
+    kendalaUtama:
+      'Pengaturan kontrak layanan berlangganan (Ijarah/Wakalah) pembuatan website lembaga pendidikan mitra.',
+    statusKlinik: 'Lulus Mandiri',
+  },
+];
+
+export const INITIAL_SHARIA_CONSULTATIONS: ShariaConsultationSession[] = [
+  {
+    id: 'shc-001',
+    santriId: 'snt-001',
+    santriNama: 'Muhammad Fayyadh Al-Hafidz',
+    namaUsaha: 'Barokah Smart Hydroponics & IoT',
+    konsultanNama: 'Dr. H. Ridwan Kamil, Lc., M.E.Sy (Dewan Syariah)',
+    topikAkad: 'Mudharabah',
+    tanggal: '2026-11-18',
+    slotWaktu: '14:00 - 15:00 WIB',
+    keluhanBisnis:
+      'Review draf akad Mudharabah Muqayyadah untuk perluasan 2 greenhouse baru bersama dana alumni.',
+    status: 'Terjadwal',
+  },
+  {
+    id: 'shc-002',
+    santriId: 'snt-002',
+    santriNama: 'Siti Aisyah Nurul Jannah',
+    namaUsaha: 'Khadijah Halal Pastry & Bakery',
+    konsultanNama: 'Ustadzah Hj. Aminah Zahra, M.Ak (Auditor Halal & Keuangan)',
+    topikAkad: 'Salam / Istishna',
+    tanggal: '2026-11-19',
+    slotWaktu: '10:00 - 11:00 WIB',
+    keluhanBisnis:
+      'Pendampingan pelaporan bahan baku bersertifikat halal BPJPH dan tata kelola DP pre-order.',
+    status: 'Menunggu Konfirmasi',
+  },
+];
+
 
 

@@ -17,6 +17,7 @@ import {
   User,
   ExternalLink,
   Radio,
+  MoreVertical,
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -34,6 +35,8 @@ interface TopNavProps {
   onManualSync: () => void;
   isSyncing: boolean;
   onOpenPushSimulator?: () => void;
+  isMobileMenuOpen?: boolean;
+  onToggleMobileMenu?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -51,6 +54,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   onManualSync,
   isSyncing,
   onOpenPushSimulator,
+  isMobileMenuOpen = false,
+  onToggleMobileMenu,
 }) => {
   const t = getTranslation(lang);
 
@@ -64,18 +69,34 @@ export const TopNav: React.FC<TopNavProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-neutral-800 bg-neutral-950/90 backdrop-blur-md px-4 sm:px-6 py-3 transition-colors duration-200">
-      <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
-        {/* Zone 1: Single text element wordmark */}
-        <div className="flex items-center gap-3 shrink-0">
+    <header className="sticky top-0 z-40 w-full border-b border-neutral-800 bg-neutral-950/90 backdrop-blur-md px-3 sm:px-6 py-3 transition-colors duration-200">
+      <div className="flex items-center justify-between gap-2 sm:gap-4 max-w-7xl mx-auto">
+        {/* Zone 1: Mobile three-dots menu opener + Single text element wordmark */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
+          {onToggleMobileMenu && (
+            <button
+              type="button"
+              onClick={onToggleMobileMenu}
+              aria-label={isMobileMenuOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
+              aria-expanded={isMobileMenuOpen}
+              title={isMobileMenuOpen ? 'Tutup Menu' : 'Buka Menu'}
+              className={`md:hidden p-2 rounded-lg border transition-colors cursor-pointer shrink-0 ${
+                isMobileMenuOpen
+                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700/60'
+                  : 'bg-neutral-900 text-neutral-300 hover:text-emerald-400 hover:bg-neutral-800/80 border-neutral-800'
+              }`}
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+          )}
           <a
             href="/"
-            className="text-lg sm:text-xl font-bold tracking-tight text-emerald-400 flex items-center gap-2 hover:text-emerald-300 transition-colors"
+            className="text-base sm:text-xl font-bold tracking-tight text-emerald-400 flex items-center gap-2 hover:text-emerald-300 transition-colors min-w-0"
           >
-            <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm">
+            <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm shrink-0">
               313
             </div>
-            <span>SantriCity Masyarakat</span>
+            <span className="truncate max-w-[140px] sm:max-w-none">SantriCity Masyarakat</span>
           </a>
           <span className="hidden lg:inline text-xs text-neutral-500 font-mono">
             t.me/SantriCity313
@@ -123,12 +144,12 @@ export const TopNav: React.FC<TopNavProps> = ({
         </nav>
 
         {/* Zone 3: 1-2 primary actions + controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Cloud Sync & Offline Simulator */}
           <button
             onClick={onToggleOnline}
             title={isOnline ? t.online : t.offline}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${
               isOnline
                 ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40 hover:bg-emerald-900/40'
                 : 'bg-amber-950/40 text-amber-300 border-amber-800/40 hover:bg-amber-900/40'
@@ -147,18 +168,18 @@ export const TopNav: React.FC<TopNavProps> = ({
             onClick={onManualSync}
             disabled={isSyncing || !isOnline}
             title={t.syncStatus}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800/60 border border-neutral-800 transition-colors disabled:opacity-40"
+            className="hidden sm:inline-flex p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800/60 border border-neutral-800 transition-colors disabled:opacity-40"
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-emerald-400' : ''}`} />
           </button>
 
           {/* Language Switcher */}
           <div className="relative flex items-center bg-neutral-900 border border-neutral-800 rounded-lg p-0.5">
-            <Globe className="w-3.5 h-3.5 text-neutral-500 ml-1.5 mr-0.5" />
+            <Globe className="w-3.5 h-3.5 text-neutral-500 ml-1 sm:ml-1.5 mr-0.5" />
             <select
               value={lang}
               onChange={(e) => onLangChange(e.target.value as Language)}
-              className="bg-transparent text-xs text-neutral-200 font-medium py-1 px-1.5 rounded focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs text-neutral-200 font-medium py-1 px-1 sm:px-1.5 rounded focus:outline-none cursor-pointer"
             >
               <option value="id" className="bg-neutral-900 text-white">ID</option>
               <option value="en" className="bg-neutral-900 text-white">EN</option>
@@ -167,7 +188,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           </div>
 
           {/* Role Switcher (Multi-user Portal) */}
-          <div className="flex items-center bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-0.5">
+          <div className="hidden sm:flex items-center bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-0.5">
             <User className="w-3.5 h-3.5 text-emerald-400 ml-1.5" />
             <select
               value={currentRole}

@@ -846,5 +846,79 @@ export interface ScholarshipApplication {
     | 'Perlu Lengkapi Berkas';
 }
 
+export type ShariaContractType =
+  | 'Murabahah'
+  | 'Mudharabah'
+  | 'Musyarakah'
+  | 'Ijarah'
+  | 'Salam / Istishna'
+  | 'Wakalah bil Ujrah';
+
+export interface ShariaBusinessClinicCase {
+  id: string;
+  santriId: string;
+  santriNama: string;
+  namaUsaha: string;
+  sektor:
+    | 'Agribisnis & Hidroponik'
+    | 'Teknologi & EdTech'
+    | 'Kuliner & Produk Halal'
+    | 'Kriya & Busana Muslim'
+    | 'Jasa Kreatif & Media';
+  akadUtama: ShariaContractType;
+  omzetBulananRp: number;
+  modalBerjalanRp: number;
+  marginHalalPersen: number;
+  skorKepatuhanSyariah: number; // 0 - 100
+  statusSertifikasiHalal:
+    | 'Tersertifikasi Halal BPJPH'
+    | 'Proses Audit LPPOM'
+    | 'Siap Pengajuan';
+  statusZakatUsaha:
+    | 'Tunaikan Zakat 2.5%'
+    | 'Menuju Nishab'
+    | 'Infaq Produktif';
+  kendalaUtama: string;
+  statusKlinik: 'Aktif Inkubasi' | 'Menunggu Sesi Konsultasi' | 'Lulus Mandiri';
+}
+
+export interface ShariaClinicAuditPillar {
+  pilar: string;
+  status: 'Terpenuhi' | 'Perlu Penguatan';
+  catatan: string;
+}
+
+export interface ShariaClinicAuditResult {
+  caseId: string;
+  namaUsaha: string;
+  akadDianalisis: ShariaContractType;
+  assessedAt: string;
+  statusKepatuhan:
+    | 'Sah & Sesuai Kaidah Syariah'
+    | 'Memerlukan Penyempurnaan Akad'
+    | 'Perlu Koreksi Mendesak (Risiko Gharar/Riba)';
+  skorKepatuhan: number;
+  skorDayaSaingBisnis: number;
+  ringkasanDiagnosis: string;
+  evaluasiAkad: ShariaClinicAuditPillar[];
+  rekomendasiEksekusi: string[];
+  estimasiZakatBulananRp: number;
+  nasihatDewanSyariah: string;
+}
+
+export interface ShariaConsultationSession {
+  id: string;
+  santriId: string;
+  santriNama: string;
+  namaUsaha: string;
+  konsultanNama: string;
+  topikAkad: ShariaContractType;
+  tanggal: string;
+  slotWaktu: string;
+  keluhanBisnis: string;
+  status: 'Terjadwal' | 'Selesai' | 'Menunggu Konfirmasi';
+}
+
+
 
 

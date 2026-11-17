@@ -25,6 +25,8 @@ import {
   ScholarshipProgram,
   ScholarshipVoucher,
   ScholarshipApplication,
+  ShariaBusinessClinicCase,
+  ShariaConsultationSession,
 } from './types/pesantren';
 import {
   INITIAL_SANTRI_LIST,
@@ -45,6 +47,8 @@ import {
   INITIAL_SCHOLARSHIP_PROGRAMS,
   INITIAL_SCHOLARSHIP_VOUCHERS,
   INITIAL_SCHOLARSHIP_APPLICATIONS,
+  INITIAL_SHARIA_BUSINESS_CASES,
+  INITIAL_SHARIA_CONSULTATIONS,
 } from './data/mockData';
 import { loadFromLocal, saveToLocal } from './services/storageService';
 import { analyzeSantriKaffah } from './services/geminiService';
@@ -68,6 +72,7 @@ import { ChatBroadcastModule } from './components/ChatBroadcastModule';
 import { KalenderModule } from './components/KalenderModule';
 import { StartupCenterModule } from './components/StartupCenterModule';
 import { BeasiswaVoucherModule } from './components/BeasiswaVoucherModule';
+import { KlinikBisnisSyariahModule } from './components/KlinikBisnisSyariahModule';
 import { AIAnalisisKaffahModule } from './components/AIAnalisisKaffahModule';
 import { AdminConsoleModule } from './components/AdminConsoleModule';
 import { KaffahReportModal } from './components/KaffahReportModal';
@@ -87,6 +92,7 @@ export default function App() {
   const [isPushSimulatorOpen, setIsPushSimulatorOpen] = useState<boolean>(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Santri & Data Collections
   const [santriList, setSantriList] = useState<SantriProfile[]>(() =>
@@ -149,6 +155,16 @@ export default function App() {
   >(() =>
     loadFromLocal('scholarshipApplications', INITIAL_SCHOLARSHIP_APPLICATIONS)
   );
+  const [shariaBusinessCases, setShariaBusinessCases] = useState<
+    ShariaBusinessClinicCase[]
+  >(() =>
+    loadFromLocal('shariaBusinessCases', INITIAL_SHARIA_BUSINESS_CASES)
+  );
+  const [shariaConsultations, setShariaConsultations] = useState<
+    ShariaConsultationSession[]
+  >(() =>
+    loadFromLocal('shariaConsultations', INITIAL_SHARIA_CONSULTATIONS)
+  );
 
   const [unreadBroadcastCount, setUnreadBroadcastCount] = useState<number>(2);
   const [readGoalAlertIds, setReadGoalAlertIds] = useState<string[]>(() => getReadAlertIds());
@@ -208,6 +224,8 @@ export default function App() {
     saveToLocal('facilityBookings', facilityBookings);
     saveToLocal('scholarshipVouchers', scholarshipVouchers);
     saveToLocal('scholarshipApplications', scholarshipApplications);
+    saveToLocal('shariaBusinessCases', shariaBusinessCases);
+    saveToLocal('shariaConsultations', shariaConsultations);
   }, [
     santriList,
     activeSantriId,
@@ -227,6 +245,8 @@ export default function App() {
     facilityBookings,
     scholarshipVouchers,
     scholarshipApplications,
+    shariaBusinessCases,
+    shariaConsultations,
   ]);
 
   // Dark Mode root class syncing
@@ -535,6 +555,35 @@ export default function App() {
     );
   };
 
+  const handleAddShariaCase = (
+    newCase: Omit<ShariaBusinessClinicCase, 'id'>
+  ) => {
+    const created: ShariaBusinessClinicCase = {
+      ...newCase,
+      id: `biz-${Date.now()}`,
+    };
+    setShariaBusinessCases((prev) => [created, ...prev]);
+  };
+
+  const handleAddShariaConsultation = (
+    session: Omit<ShariaConsultationSession, 'id'>
+  ) => {
+    const created: ShariaConsultationSession = {
+      ...session,
+      id: `shc-${Date.now()}`,
+    };
+    setShariaConsultations((prev) => [created, ...prev]);
+  };
+
+  const handleUpdateShariaConsultationStatus = (
+    sessionId: string,
+    status: ShariaConsultationSession['status']
+  ) => {
+    setShariaConsultations((prev) =>
+      prev.map((s) => (s.id === sessionId ? { ...s, status } : s))
+    );
+  };
+
   const handleRunAiAnalysis = async () => {
     setIsAiAnalyzing(true);
     try {
@@ -575,6 +624,8 @@ export default function App() {
     if (restored.facilityBookings) setFacilityBookings(restored.facilityBookings);
     if (restored.scholarshipVouchers) setScholarshipVouchers(restored.scholarshipVouchers);
     if (restored.scholarshipApplications) setScholarshipApplications(restored.scholarshipApplications);
+    if (restored.shariaBusinessCases) setShariaBusinessCases(restored.shariaBusinessCases);
+    if (restored.shariaConsultations) setShariaConsultations(restored.shariaConsultations);
   };
 
   const fullDatabaseState = {
@@ -596,6 +647,8 @@ export default function App() {
     facilityBookings,
     scholarshipVouchers,
     scholarshipApplications,
+    shariaBusinessCases,
+    shariaConsultations,
     exportedAt: new Date().toISOString(),
   };
 
@@ -617,6 +670,8 @@ export default function App() {
         onManualSync={handleManualSync}
         isSyncing={isSyncing}
         onOpenPushSimulator={() => setIsPushSimulatorOpen(true)}
+        isMobileMenuOpen={isMobileMenuOpen}
+        onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
       />
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
@@ -625,17 +680,22 @@ export default function App() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           currentRole={currentRole}
+          onRoleChange={setCurrentRole}
           lang={lang}
           santriList={santriList}
           activeSantri={activeSantri}
           onSelectSantri={(s) => setActiveSantriId(s.id)}
+          isMobileOpen={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {activeTab === 'overview' && (
             <DashboardKaffah
               santri={activeSantri}
+              allSantriList={santriList}
+              allTahfidzList={tahfidzList}
               tahfidzList={santriTahfidz}
               nilaiList={santriNilai}
               presensiList={santriPresensi}
@@ -652,6 +712,7 @@ export default function App() {
               onRunAiAnalysis={handleRunAiAnalysis}
               isAiAnalyzing={isAiAnalyzing}
               onOpenPushSimulator={() => setIsPushSimulatorOpen(true)}
+              onSelectSantri={(s) => setActiveSantriId(s.id)}
             />
           )}
 
@@ -780,6 +841,19 @@ export default function App() {
               onIssueVoucher={handleIssueVoucher}
               onSubmitApplication={handleSubmitScholarshipApp}
               onUpdateApplicationStatus={handleUpdateScholarshipAppStatus}
+              currentRole={currentRole}
+              lang={lang}
+            />
+          )}
+
+          {activeTab === 'klinik-syariah' && (
+            <KlinikBisnisSyariahModule
+              santri={activeSantri}
+              cases={shariaBusinessCases}
+              consultations={shariaConsultations}
+              onAddCase={handleAddShariaCase}
+              onAddConsultation={handleAddShariaConsultation}
+              onUpdateConsultationStatus={handleUpdateShariaConsultationStatus}
               currentRole={currentRole}
               lang={lang}
             />

@@ -31,13 +31,17 @@ import {
   Radio,
   Cpu,
   Ticket,
+  Scale,
 } from 'lucide-react';
 import { AIDailyDigestSection } from './AIDailyDigestSection';
 import { GrowthTimelineSection } from './GrowthTimelineSection';
 import { HonorsMedalsSection } from './HonorsMedalsSection';
+import { GlobalTahfidzLeaderboard } from './GlobalTahfidzLeaderboard';
 
 interface DashboardKaffahProps {
   santri: SantriProfile;
+  allSantriList?: SantriProfile[];
+  allTahfidzList?: TahfidzEntry[];
   tahfidzList: TahfidzEntry[];
   nilaiList: NilaiMataPelajaran[];
   presensiList: PresensiHarian[];
@@ -54,10 +58,13 @@ interface DashboardKaffahProps {
   onRunAiAnalysis: () => void;
   isAiAnalyzing: boolean;
   onOpenPushSimulator?: () => void;
+  onSelectSantri?: (santri: SantriProfile) => void;
 }
 
 export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
   santri,
+  allSantriList,
+  allTahfidzList,
   tahfidzList,
   nilaiList,
   presensiList,
@@ -74,6 +81,7 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
   onRunAiAnalysis,
   isAiAnalyzing,
   onOpenPushSimulator,
+  onSelectSantri,
 }) => {
   const t = getTranslation(lang);
 
@@ -312,6 +320,15 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
         nilaiList={nilaiList}
         academicGoals={academicGoals}
         onNavigateTab={onNavigateTab}
+      />
+
+      {/* Global Tahfidz Leaderboard: Ziyadah Progress Competition */}
+      <GlobalTahfidzLeaderboard
+        santri={santri}
+        allSantriList={allSantriList}
+        allTahfidzList={allTahfidzList || tahfidzList}
+        onNavigateTab={onNavigateTab}
+        onSelectSantri={onSelectSantri}
       />
 
       {/* AI Daily Digest (Prayer Punctuality, Health Status, & Recent Academic Progress) */}
@@ -581,9 +598,9 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
         </div>
       </div>
 
-      {/* StartUp Center & Peluang Beasiswa Quick Access */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* StartUp Center, Peluang Beasiswa & Klinik Bisnis Syariah Quick Access */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shrink-0">
               <Cpu className="w-5 h-5 text-emerald-400" />
@@ -601,14 +618,14 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
           <button
             type="button"
             onClick={() => onNavigateTab('startup-center')}
-            className="px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-neutral-950 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-neutral-950 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap self-start cursor-pointer"
           >
             <span>Jelajahi</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shrink-0">
               <Ticket className="w-5 h-5 text-amber-400" />
@@ -626,9 +643,34 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
           <button
             type="button"
             onClick={() => onNavigateTab('beasiswa')}
-            className="px-4 py-2 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap self-start cursor-pointer"
           >
             <span>Lihat Peluang</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shrink-0">
+              <Scale className="w-5 h-5 text-sky-400" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">
+                Klinik Bisnis Syariah Cerdas
+              </h3>
+              <p className="text-xs text-neutral-400">
+                AI Audit Akad Muamalah · Kalkulator Bagi Hasil & Zakat 2.5% · Inkubasi Usaha
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('klinik-syariah')}
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-neutral-950 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap self-start cursor-pointer"
+          >
+            <span>Buka Klinik</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
