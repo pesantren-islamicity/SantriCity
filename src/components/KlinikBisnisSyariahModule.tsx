@@ -69,26 +69,44 @@ export const KlinikBisnisSyariahModule: React.FC<
   onUpdateConsultationStatus,
   currentRole,
 }) => {
+  const safeCases = useMemo(
+    () =>
+      (Array.isArray(cases) ? cases : []).filter(
+        (c): c is ShariaBusinessClinicCase =>
+          Boolean(c && c.id && typeof c.namaUsaha === 'string')
+      ),
+    [cases]
+  );
+
+  const safeConsultations = useMemo(
+    () =>
+      (Array.isArray(consultations) ? consultations : []).filter(
+        (s): s is ShariaConsultationSession =>
+          Boolean(s && s.id && typeof s.namaUsaha === 'string')
+      ),
+    [consultations]
+  );
+
   const [activeSubTab, setActiveSubTab] = useState<ClinicSubTab>('audit');
 
   // Audit AI State
   const [selectedCaseId, setSelectedCaseId] = useState<string>(
-    cases[0]?.id || 'custom'
+    safeCases[0]?.id || 'custom'
   );
   const [customBusinessName, setCustomBusinessName] = useState<string>(
-    cases[0]?.namaUsaha || 'Usaha Mandiri Santri'
+    safeCases[0]?.namaUsaha || 'Usaha Mandiri Santri'
   );
   const [customAkad, setCustomAkad] = useState<ShariaContractType>(
-    cases[0]?.akadUtama || 'Mudharabah'
+    safeCases[0]?.akadUtama || 'Mudharabah'
   );
   const [customOmzet, setCustomOmzet] = useState<number>(
-    cases[0]?.omzetBulananRp || 12000000
+    Number(safeCases[0]?.omzetBulananRp) || 12000000
   );
   const [customMargin, setCustomMargin] = useState<number>(
-    cases[0]?.marginHalalPersen || 25
+    Number(safeCases[0]?.marginHalalPersen) || 25
   );
   const [customScenario, setCustomScenario] = useState<string>(
-    cases[0]?.kendalaUtama ||
+    safeCases[0]?.kendalaUtama ||
       'Ingin menyusun akad kerja sama bagi hasil dengan investor alumni pesantren agar transparan dan sah secara syariah.'
   );
   const [auditResult, setAuditResult] =
@@ -108,7 +126,7 @@ export const KlinikBisnisSyariahModule: React.FC<
   // Modals State
   const [isConsultModalOpen, setIsConsultModalOpen] = useState<boolean>(false);
   const [consultUsaha, setConsultUsaha] = useState<string>(
-    cases[0]?.namaUsaha || 'Barokah Smart Hydroponics & IoT'
+    safeCases[0]?.namaUsaha || 'Barokah Smart Hydroponics & IoT'
   );
   const [consultAkad, setConsultAkad] =
     useState<ShariaContractType>('Mudharabah');
@@ -138,12 +156,17 @@ export const KlinikBisnisSyariahModule: React.FC<
     const el = chartContainerRef.current;
     if (!el) return;
     const updateSize = () => {
-      const measured = Math.floor(el.getBoundingClientRect().width);
-      if (measured > 0) {
-        setChartWidth(Math.max(240, measured));
+      try {
+        const measured = Math.floor(el.getBoundingClientRect().width);
+        if (measured > 0) {
+          setChartWidth(Math.max(240, measured));
+        }
+      } catch {
+        // ignore measurement failure
       }
     };
     updateSize();
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(updateSize);
     observer.observe(el);
     return () => observer.disconnect();
@@ -151,54 +174,66 @@ export const KlinikBisnisSyariahModule: React.FC<
 
   // Load initial audit automatically on first mount
   useEffect(() => {
-    if (!auditResult && cases[0]) {
-      buildAuditFromBusinessCase(cases[0])
+    if (!auditResult && safeCases[0]) {
+      buildAuditFromBusinessCase(safeCases[0])
         .then(setAuditResult)
         .catch((err) => {
           console.warn('Initial audit load failed:', err);
         });
     }
-  }, [cases]);
+  }, [safeCases]);
 
   // Aggregate metrics
   const kpiStats = useMemo(() => {
-    const totalOmzet = cases.reduce((acc, c) => acc + c.omzetBulananRp, 0);
-    const avgCompliance = cases.length
-      ? Math.round(
-          cases.reduce((acc, c) => acc + c.skorKepatuhanSyariah, 0) /
-            cases.length
-        )
-      : 95;
-    const totalZakat = cases.reduce(
-      (acc, c) =>
-        acc + Math.round(c.omzetBulananRp * (c.marginHalalPersen / 100) * 0.025),
+    const totalOmzet = safeCases.reduce(
+      (acc, c) => acc + (Number(c.omzetBulananRp) || 0),
       0
     );
-    const certifiedCount = cases.filter(
-      (c) => c.statusSertifikasiHalal === 'Tersertifikasi Halal BPJPH'
+    const avgCompliance = safeCases.length
+      ? Math.round(
+          safeCases.reduce(
+            (acc, c) => acc + (Number(c.skorKepatuhanSyariah) || 90),
+            0
+          ) / safeCases.length
+        )
+      : 95;
+    const totalZakat = safeCases.reduce(
+      (acc, c) =>
+        acc +
+        Math.round(
+          (Number(c.omzetBulananRp) || 0) *
+            ((Number(c.marginHalalPersen) || 0) / 100) *
+            0.025
+        ),
+      0
+    );
+    const certifiedCount = safeCases.filter((c) =>
+      String(c.statusSertifikasiHalal || '').includes('BPJPH')
     ).length;
 
     return {
-      totalUnits: cases.length,
+      totalUnits: safeCases.length,
       avgCompliance,
       totalOmzet,
       totalZakat,
       certifiedCount,
     };
-  }, [cases]);
+  }, [safeCases]);
 
   // Render D3 Sharia Compliance & Margin Bar Chart
   useEffect(() => {
     const svgEl = chartSvgRef.current;
-    if (!svgEl || !cases.length) return;
+    if (!svgEl || !safeCases.length) return;
 
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = prefersReducedMotion ? 0 : 420;
+    try {
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const duration = prefersReducedMotion ? 0 : 420;
 
-    const svg = d3.select(svgEl);
-    svg.selectAll('*').remove();
+      const svg = d3.select(svgEl);
+      svg.selectAll('*').remove();
 
     const isVeryNarrow = chartWidth < 400;
     const isCompact = chartWidth < 560;
@@ -223,10 +258,13 @@ export const KlinikBisnisSyariahModule: React.FC<
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
+    const getScore = (d: ShariaBusinessClinicCase) =>
+      Math.min(100, Math.max(0, Number(d.skorKepatuhanSyariah) || 90));
+
     const xScale = d3.scaleLinear().domain([0, 100]).range([0, innerWidth]);
     const yScale = d3
       .scaleBand<string>()
-      .domain(cases.map((c) => c.id))
+      .domain(safeCases.map((c) => c.id))
       .range([0, innerHeight])
       .padding(0.32);
 
@@ -245,7 +283,7 @@ export const KlinikBisnisSyariahModule: React.FC<
 
     root
       .selectAll('rect.biz-track')
-      .data(cases)
+      .data(safeCases)
       .enter()
       .append('rect')
       .attr('x', 0)
@@ -258,32 +296,30 @@ export const KlinikBisnisSyariahModule: React.FC<
 
     const bars = root
       .selectAll('rect.biz-fill')
-      .data(cases)
+      .data(safeCases)
       .enter()
       .append('rect')
       .attr('x', 0)
       .attr('y', (d) => yScale(d.id) ?? 0)
       .attr('height', yScale.bandwidth())
       .attr('rx', 5)
-      .attr('fill', (d) =>
-        d.skorKepatuhanSyariah >= 95 ? '#10b981' : '#14b8a6'
-      )
+      .attr('fill', (d) => (getScore(d) >= 95 ? '#10b981' : '#14b8a6'))
       .attr('width', 0);
 
     bars
       .transition()
       .duration(duration)
       .ease(d3.easeCubicOut)
-      .attr('width', (d) => Math.max(4, xScale(d.skorKepatuhanSyariah)));
+      .attr('width', (d) => Math.max(4, xScale(getScore(d))));
 
     root
       .selectAll('text.biz-score')
-      .data(cases)
+      .data(safeCases)
       .enter()
       .append('text')
       .attr('y', (d) => (yScale(d.id) ?? 0) + yScale.bandwidth() / 2)
       .attr('dy', '0.35em')
-      .attr('x', (d) => xScale(d.skorKepatuhanSyariah) - 8)
+      .attr('x', (d) => Math.max(24, xScale(getScore(d)) - 8))
       .attr('text-anchor', 'end')
       .attr('font-family', 'JetBrains Mono, monospace')
       .attr('font-size', isVeryNarrow ? '10px' : '11px')
@@ -291,13 +327,13 @@ export const KlinikBisnisSyariahModule: React.FC<
       .attr('fill', '#0a0a0a')
       .text((d) =>
         isVeryNarrow
-          ? `${d.skorKepatuhanSyariah}%`
-          : `${d.skorKepatuhanSyariah}% · ${d.akadUtama}`
+          ? `${getScore(d)}%`
+          : `${getScore(d)}% · ${String(d.akadUtama || '')}`
       );
 
     root
       .selectAll('text.biz-label')
-      .data(cases)
+      .data(safeCases)
       .enter()
       .append('text')
       .attr('x', -10)
@@ -309,15 +345,15 @@ export const KlinikBisnisSyariahModule: React.FC<
       .attr('font-weight', '600')
       .text((d) =>
         isVeryNarrow
-          ? d.namaUsaha.slice(0, 14)
+          ? String(d.namaUsaha || '').slice(0, 14)
           : isCompact
-          ? d.namaUsaha.slice(0, 18)
-          : d.namaUsaha.slice(0, 30)
+          ? String(d.namaUsaha || '').slice(0, 18)
+          : String(d.namaUsaha || '').slice(0, 30)
       );
 
     root
       .selectAll('rect.biz-hit')
-      .data(cases)
+      .data(safeCases)
       .enter()
       .append('rect')
       .attr('x', 0)
@@ -346,18 +382,21 @@ export const KlinikBisnisSyariahModule: React.FC<
       .attr('fill', '#a3a3a3')
       .attr('font-size', '11px')
       .attr('font-family', 'JetBrains Mono, monospace');
-  }, [cases, chartWidth]);
+    } catch (err) {
+      console.warn('KlinikSyariah D3 chart skipped:', err);
+    }
+  }, [safeCases, chartWidth]);
 
   // Select case preset for Audit AI
   const handleSelectCaseForAudit = (caseId: string) => {
     setSelectedCaseId(caseId);
-    const found = cases.find((c) => c.id === caseId);
+    const found = safeCases.find((c) => c.id === caseId);
     if (found) {
       setCustomBusinessName(found.namaUsaha);
       setCustomAkad(found.akadUtama);
-      setCustomOmzet(found.omzetBulananRp);
-      setCustomMargin(found.marginHalalPersen);
-      setCustomScenario(found.kendalaUtama);
+      setCustomOmzet(Number(found.omzetBulananRp) || 12000000);
+      setCustomMargin(Number(found.marginHalalPersen) || 25);
+      setCustomScenario(found.kendalaUtama || '');
     }
   };
 
@@ -365,18 +404,21 @@ export const KlinikBisnisSyariahModule: React.FC<
     e.preventDefault();
     setIsAuditing(true);
     try {
-      const matched = cases.find((c) => c.id === selectedCaseId);
+      const matched = safeCases.find((c) => c.id === selectedCaseId);
       const res = await diagnoseShariaBusiness({
         caseId: selectedCaseId,
         namaUsaha: customBusinessName,
         akad: customAkad,
-        omzetBulananRp: Number(customOmzet),
-        modalBerjalanRp: matched?.modalBerjalanRp || Math.round(customOmzet * 0.5),
-        marginHalalPersen: Number(customMargin),
+        omzetBulananRp: Number(customOmzet) || 0,
+        modalBerjalanRp:
+          Number(matched?.modalBerjalanRp) || Math.round((Number(customOmzet) || 0) * 0.5),
+        marginHalalPersen: Number(customMargin) || 20,
         statusHalal: matched?.statusSertifikasiHalal || 'Siap Pengajuan',
         keluhanAtauSkenario: customScenario,
       });
       setAuditResult(res);
+    } catch (err) {
+      console.warn('Audit run failed:', err);
     } finally {
       setIsAuditing(false);
     }
@@ -436,8 +478,8 @@ export const KlinikBisnisSyariahModule: React.FC<
   const handleSubmitConsultation = (e: React.FormEvent) => {
     e.preventDefault();
     onAddConsultation({
-      santriId: santri.id,
-      santriNama: santri.nama,
+      santriId: santri?.id || 'snt-001',
+      santriNama: santri?.nama || 'Santri',
       namaUsaha: consultUsaha,
       konsultanNama: 'Dr. H. Ridwan Kamil, Lc., M.E.Sy (Dewan Syariah)',
       topikAkad: consultAkad,
@@ -456,14 +498,14 @@ export const KlinikBisnisSyariahModule: React.FC<
   const handleSubmitNewUnit = (e: React.FormEvent) => {
     e.preventDefault();
     onAddCase({
-      santriId: santri.id,
-      santriNama: santri.nama,
+      santriId: santri?.id || 'snt-001',
+      santriNama: santri?.nama || 'Santri',
       namaUsaha: newUnitName.trim() || 'Usaha Baru SantriCity',
       sektor: newUnitSector,
       akadUtama: newUnitAkad,
-      omzetBulananRp: Number(newUnitOmzet),
-      modalBerjalanRp: Number(newUnitModal),
-      marginHalalPersen: Number(newUnitMargin),
+      omzetBulananRp: Number(newUnitOmzet) || 0,
+      modalBerjalanRp: Number(newUnitModal) || 0,
+      marginHalalPersen: Number(newUnitMargin) || 20,
       skorKepatuhanSyariah: 92,
       statusSertifikasiHalal: 'Siap Pengajuan',
       statusZakatUsaha: 'Infaq Produktif',
@@ -479,7 +521,7 @@ export const KlinikBisnisSyariahModule: React.FC<
   };
 
   const handleExportCsv = () => {
-    const rows = cases.map((c) => ({
+    const rows = safeCases.map((c) => ({
       NamaUsaha: c.namaUsaha,
       Santri: c.santriNama,
       Sektor: c.sektor,
@@ -628,8 +670,8 @@ export const KlinikBisnisSyariahModule: React.FC<
           [
             { id: 'audit', label: 'Audit Akad & Diagnosis AI', icon: Sparkles },
             { id: 'kalkulator', label: 'Kalkulator Akad & Zakat', icon: Calculator },
-            { id: 'portofolio', label: `Portofolio Inkubasi (${cases.length})`, icon: Briefcase },
-            { id: 'jadwal', label: `Jadwal Konsultasi (${consultations.length})`, icon: Calendar },
+            { id: 'portofolio', label: `Portofolio Inkubasi (${safeCases.length})`, icon: Briefcase },
+            { id: 'jadwal', label: `Jadwal Konsultasi (${safeConsultations.length})`, icon: Calendar },
           ] as {
             id: ClinicSubTab;
             label: string;
@@ -681,7 +723,7 @@ export const KlinikBisnisSyariahModule: React.FC<
                 onChange={(e) => handleSelectCaseForAudit(e.target.value)}
                 className="w-full p-2.5 rounded-lg bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-emerald-500"
               >
-                {cases.map((c) => (
+                {safeCases.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.namaUsaha} ({c.akadUtama})
                   </option>
@@ -776,26 +818,28 @@ export const KlinikBisnisSyariahModule: React.FC<
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-800">
                   <div>
                     <div className="text-[11px] font-mono tabular-nums text-neutral-400">
-                      Akad {auditResult.akadDianalisis} · Diperiksa{' '}
-                      {auditResult.assessedAt}
+                      Akad {String(auditResult.akadDianalisis || '')} · Diperiksa{' '}
+                      {String(auditResult.assessedAt || '')}
                     </div>
                     <h3 className="text-base font-bold text-white mt-0.5">
-                      {auditResult.namaUsaha}
+                      {String(auditResult.namaUsaha || '')}
                     </h3>
                   </div>
 
                   <div className="text-left sm:text-right font-mono tabular-nums">
                     <div className="text-xl font-bold text-emerald-400">
-                      {auditResult.skorKepatuhan} / 100
+                      {Number(auditResult.skorKepatuhan) || 0} / 100
                     </div>
                     <div className="text-[11px] text-amber-300 font-sans font-medium">
-                      {auditResult.statusKepatuhan}
+                      {String(auditResult.statusKepatuhan || '')}
                     </div>
                   </div>
                 </div>
 
                 <p className="text-xs text-neutral-300 leading-relaxed">
-                  {auditResult.ringkasanDiagnosis}
+                  {typeof auditResult.ringkasanDiagnosis === 'string'
+                    ? auditResult.ringkasanDiagnosis
+                    : ''}
                 </p>
 
                 {/* 5 Sharia Compliance Pillars */}
@@ -804,24 +848,27 @@ export const KlinikBisnisSyariahModule: React.FC<
                     Evaluasi 5 Pilar Kepatuhan Fiqh Muamalah
                   </h4>
                   <div className="divide-y divide-neutral-800 border border-neutral-800 rounded-xl bg-neutral-950/60">
-                    {auditResult.evaluasiAkad.map((item, idx) => (
+                    {(Array.isArray(auditResult.evaluasiAkad)
+                      ? auditResult.evaluasiAkad
+                      : []
+                    ).map((item, idx) => (
                       <div key={idx} className="p-3 space-y-1 text-xs">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold text-white">
-                            {item.pilar}
+                            {typeof item?.pilar === 'string' ? item.pilar : ''}
                           </span>
                           <span
                             className={
-                              item.status === 'Terpenuhi'
+                              item?.status === 'Terpenuhi'
                                 ? 'text-emerald-400 font-medium'
                                 : 'text-amber-400 font-medium'
                             }
                           >
-                            {item.status}
+                            {typeof item?.status === 'string' ? item.status : ''}
                           </span>
                         </div>
                         <p className="text-[11px] text-neutral-400 leading-relaxed">
-                          {item.catatan}
+                          {typeof item?.catatan === 'string' ? item.catatan : ''}
                         </p>
                       </div>
                     ))}
@@ -835,10 +882,15 @@ export const KlinikBisnisSyariahModule: React.FC<
                       Langkah Perbaikan & Akselerasi
                     </h4>
                     <ul className="space-y-1.5 text-neutral-300 text-[11px]">
-                      {auditResult.rekomendasiEksekusi.map((rec, i) => (
+                      {(Array.isArray(auditResult.rekomendasiEksekusi)
+                        ? auditResult.rekomendasiEksekusi
+                        : []
+                      ).map((rec, i) => (
                         <li key={i} className="flex items-start gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                          <span>{rec}</span>
+                          <span>
+                            {typeof rec === 'string' ? rec : JSON.stringify(rec)}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -849,7 +901,11 @@ export const KlinikBisnisSyariahModule: React.FC<
                       Nasihat Dewan Pengawas Syariah
                     </div>
                     <p className="text-[11px] text-neutral-300 leading-relaxed italic">
-                      &ldquo;{auditResult.nasihatDewanSyariah}&rdquo;
+                      &ldquo;
+                      {typeof auditResult.nasihatDewanSyariah === 'string'
+                        ? auditResult.nasihatDewanSyariah
+                        : ''}
+                      &rdquo;
                     </p>
                     <div className="pt-2 border-t border-neutral-800 flex items-center justify-between font-mono tabular-nums text-[11px]">
                       <span className="text-neutral-400">
@@ -857,9 +913,9 @@ export const KlinikBisnisSyariahModule: React.FC<
                       </span>
                       <span className="text-emerald-400 font-bold">
                         Rp{' '}
-                        {auditResult.estimasiZakatBulananRp.toLocaleString(
-                          'id-ID'
-                        )}
+                        {Number(
+                          auditResult.estimasiZakatBulananRp || 0
+                        ).toLocaleString('id-ID')}
                         /bln
                       </span>
                     </div>
@@ -1068,7 +1124,7 @@ export const KlinikBisnisSyariahModule: React.FC<
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {cases.map((biz) => (
+            {safeCases.map((biz) => (
               <article
                 key={biz.id}
                 className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between gap-4"
@@ -1079,7 +1135,7 @@ export const KlinikBisnisSyariahModule: React.FC<
                       {biz.sektor} · Akad {biz.akadUtama}
                     </span>
                     <span className="font-mono tabular-nums text-emerald-400 font-semibold">
-                      Kepatuhan {biz.skorKepatuhanSyariah}/100
+                      Kepatuhan {Number(biz.skorKepatuhanSyariah) || 0}/100
                     </span>
                   </div>
 
@@ -1100,19 +1156,19 @@ export const KlinikBisnisSyariahModule: React.FC<
                     <div>
                       <div className="text-neutral-500">Omzet / Bln</div>
                       <div className="text-white font-semibold">
-                        Rp {(biz.omzetBulananRp / 1000000).toFixed(1)} Jt
+                        Rp {((Number(biz.omzetBulananRp) || 0) / 1000000).toFixed(1)} Jt
                       </div>
                     </div>
                     <div>
                       <div className="text-neutral-500">Margin Halal</div>
                       <div className="text-emerald-400 font-semibold">
-                        {biz.marginHalalPersen}%
+                        {Number(biz.marginHalalPersen) || 0}%
                       </div>
                     </div>
                     <div>
                       <div className="text-neutral-500">Sertifikasi</div>
                       <div className="text-amber-300 font-sans truncate">
-                        {biz.statusSertifikasiHalal.replace(
+                        {String(biz.statusSertifikasiHalal || '').replace(
                           'Tersertifikasi Halal ',
                           ''
                         )}
@@ -1131,7 +1187,9 @@ export const KlinikBisnisSyariahModule: React.FC<
                       onClick={() => {
                         handleSelectCaseForAudit(biz.id);
                         setActiveSubTab('audit');
-                        buildAuditFromBusinessCase(biz).then(setAuditResult);
+                        buildAuditFromBusinessCase(biz)
+                          .then(setAuditResult)
+                          .catch((err) => console.warn('Audit load failed:', err));
                       }}
                       className="px-3 py-1.5 rounded-lg text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-emerald-300 cursor-pointer"
                     >
@@ -1176,14 +1234,14 @@ export const KlinikBisnisSyariahModule: React.FC<
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/80">
-                {consultations.length === 0 ? (
+                {safeConsultations.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-neutral-400">
                       Belum ada jadwal konsultasi klinik bisnis syariah.
                     </td>
                   </tr>
                 ) : (
-                  consultations.map((ses) => (
+                  safeConsultations.map((ses) => (
                     <tr
                       key={ses.id}
                       className="hover:bg-neutral-800/40 transition-colors"

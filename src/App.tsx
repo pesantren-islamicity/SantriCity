@@ -148,6 +148,66 @@ class ModuleErrorBoundary extends Component<
   }
 }
 
+function sanitizeFacilities(raw: unknown): SmartFacilityZone[] {
+  if (!Array.isArray(raw) || raw.length === 0) return INITIAL_SMART_FACILITIES;
+  const valid = raw.every(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      typeof (item as SmartFacilityZone).id === 'string' &&
+      typeof (item as SmartFacilityZone).nama === 'string' &&
+      typeof (item as SmartFacilityZone).kodeRuang === 'string' &&
+      typeof (item as SmartFacilityZone).deskripsi === 'string' &&
+      typeof (item as SmartFacilityZone).kapasitasKursi === 'number' &&
+      Array.isArray((item as SmartFacilityZone).infrastrukturUnggulan) &&
+      (item as SmartFacilityZone).lingkunganCerdas &&
+      typeof (item as SmartFacilityZone).lingkunganCerdas.suhuCelsius === 'number'
+  );
+  return valid ? (raw as SmartFacilityZone[]) : INITIAL_SMART_FACILITIES;
+}
+
+function sanitizeBookings(raw: unknown): FacilityBooking[] {
+  if (!Array.isArray(raw)) return INITIAL_FACILITY_BOOKINGS;
+  return raw.filter(
+    (item): item is FacilityBooking =>
+      Boolean(
+        item &&
+          typeof item === 'object' &&
+          typeof (item as FacilityBooking).id === 'string' &&
+          typeof (item as FacilityBooking).santriId === 'string' &&
+          typeof (item as FacilityBooking).facilityNama === 'string'
+      )
+  );
+}
+
+function sanitizeShariaCases(raw: unknown): ShariaBusinessClinicCase[] {
+  if (!Array.isArray(raw) || raw.length === 0) return INITIAL_SHARIA_BUSINESS_CASES;
+  const valid = raw.every(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      typeof (item as ShariaBusinessClinicCase).id === 'string' &&
+      typeof (item as ShariaBusinessClinicCase).namaUsaha === 'string' &&
+      typeof (item as ShariaBusinessClinicCase).akadUtama === 'string' &&
+      typeof (item as ShariaBusinessClinicCase).statusSertifikasiHalal === 'string' &&
+      typeof (item as ShariaBusinessClinicCase).kendalaUtama === 'string'
+  );
+  return valid ? (raw as ShariaBusinessClinicCase[]) : INITIAL_SHARIA_BUSINESS_CASES;
+}
+
+function sanitizeShariaConsultations(raw: unknown): ShariaConsultationSession[] {
+  if (!Array.isArray(raw)) return INITIAL_SHARIA_CONSULTATIONS;
+  return raw.filter(
+    (item): item is ShariaConsultationSession =>
+      Boolean(
+        item &&
+          typeof item === 'object' &&
+          typeof (item as ShariaConsultationSession).id === 'string' &&
+          typeof (item as ShariaConsultationSession).namaUsaha === 'string'
+      )
+  );
+}
+
 function loadArrayFromLocal<T>(
   key: string,
   fallback: T[],
@@ -175,56 +235,56 @@ export default function App() {
 
   // Santri & Data Collections
   const [santriList, setSantriList] = useState<SantriProfile[]>(() =>
-    loadFromLocal('santriList', INITIAL_SANTRI_LIST)
+    loadArrayFromLocal('santriList', INITIAL_SANTRI_LIST, true)
   );
   const [activeSantriId, setActiveSantriId] = useState<string>(() =>
     loadFromLocal('activeSantriId', INITIAL_SANTRI_LIST[0].id)
   );
 
   const [tahfidzList, setTahfidzList] = useState<TahfidzEntry[]>(() =>
-    loadFromLocal('tahfidzList', INITIAL_TAHFIDZ_ENTRIES)
+    loadArrayFromLocal('tahfidzList', INITIAL_TAHFIDZ_ENTRIES)
   );
   const [nilaiList, setNilaiList] = useState<NilaiMataPelajaran[]>(() =>
-    loadFromLocal('nilaiList', INITIAL_NILAI_MAPEL)
+    loadArrayFromLocal('nilaiList', INITIAL_NILAI_MAPEL)
   );
   const [presensiList, setPresensiList] = useState<PresensiHarian[]>(() =>
-    loadFromLocal('presensiList', INITIAL_PRESENSI_LIST)
+    loadArrayFromLocal('presensiList', INITIAL_PRESENSI_LIST)
   );
   const [disiplinList, setDisiplinList] = useState<CatatanDisiplin[]>(() =>
-    loadFromLocal('disiplinList', INITIAL_DISIPLIN_LIST)
+    loadArrayFromLocal('disiplinList', INITIAL_DISIPLIN_LIST)
   );
   const [kesehatanList, setKesehatanList] = useState<RekamMedis[]>(() =>
-    loadFromLocal('kesehatanList', INITIAL_REKAM_MEDIS)
+    loadArrayFromLocal('kesehatanList', INITIAL_REKAM_MEDIS)
   );
   const [tagihanList, setTagihanList] = useState<TagihanKeuangan[]>(() =>
-    loadFromLocal('tagihanList', INITIAL_TAGIHAN_LIST)
+    loadArrayFromLocal('tagihanList', INITIAL_TAGIHAN_LIST)
   );
   const [izinList, setIzinList] = useState<IzinKeluarPondok[]>(() =>
-    loadFromLocal('izinList', INITIAL_IZIN_LIST)
+    loadArrayFromLocal('izinList', INITIAL_IZIN_LIST)
   );
   const [chatMessages, setChatMessages] = useState<PesanChat[]>(() =>
-    loadFromLocal('chatMessages', INITIAL_CHAT_MESSAGES)
+    loadArrayFromLocal('chatMessages', INITIAL_CHAT_MESSAGES)
   );
   const [broadcasts, setBroadcasts] = useState<BroadcastTelegram[]>(() =>
-    loadFromLocal('broadcasts', INITIAL_TELEGRAM_BROADCASTS)
+    loadArrayFromLocal('broadcasts', INITIAL_TELEGRAM_BROADCASTS)
   );
   const [agendas, setAgendas] = useState<AgendaPesantren[]>(() =>
-    loadFromLocal('agendas', INITIAL_AGENDA_PESANTREN)
+    loadArrayFromLocal('agendas', INITIAL_AGENDA_PESANTREN)
   );
-  const [aiKaffahMap, setAiKaffahMap] = useState<Record<string, AIAnalisisKaffah>>(() =>
-    loadFromLocal('aiKaffahMap', INITIAL_AI_KAFFAH)
-  );
-  const [academicGoals, setAcademicGoals] = useState<AcademicGoal[]>(() =>
-    loadFromLocal('academicGoals', INITIAL_ACADEMIC_GOALS)
-  );
-  const [smartFacilities, setSmartFacilities] = useState<SmartFacilityZone[]>(() => {
-    const loaded = loadArrayFromLocal('smartFacilities', INITIAL_SMART_FACILITIES, true);
-    return loaded.every((item) => item && item.lingkunganCerdas)
-      ? loaded
-      : INITIAL_SMART_FACILITIES;
+  const [aiKaffahMap, setAiKaffahMap] = useState<Record<string, AIAnalisisKaffah>>(() => {
+    const loaded = loadFromLocal<unknown>('aiKaffahMap', INITIAL_AI_KAFFAH);
+    return loaded && typeof loaded === 'object' && !Array.isArray(loaded)
+      ? (loaded as Record<string, AIAnalisisKaffah>)
+      : INITIAL_AI_KAFFAH;
   });
+  const [academicGoals, setAcademicGoals] = useState<AcademicGoal[]>(() =>
+    loadArrayFromLocal('academicGoals', INITIAL_ACADEMIC_GOALS)
+  );
+  const [smartFacilities, setSmartFacilities] = useState<SmartFacilityZone[]>(() =>
+    sanitizeFacilities(loadFromLocal<unknown>('smartFacilities', INITIAL_SMART_FACILITIES))
+  );
   const [facilityBookings, setFacilityBookings] = useState<FacilityBooking[]>(() =>
-    loadArrayFromLocal('facilityBookings', INITIAL_FACILITY_BOOKINGS)
+    sanitizeBookings(loadFromLocal<unknown>('facilityBookings', INITIAL_FACILITY_BOOKINGS))
   );
   const [scholarshipPrograms] = useState<ScholarshipProgram[]>(
     INITIAL_SCHOLARSHIP_PROGRAMS
@@ -239,16 +299,17 @@ export default function App() {
   );
   const [shariaBusinessCases, setShariaBusinessCases] = useState<
     ShariaBusinessClinicCase[]
-  >(() => {
-    const loaded = loadArrayFromLocal('shariaBusinessCases', INITIAL_SHARIA_BUSINESS_CASES, true);
-    return loaded.every((item) => item && item.namaUsaha && item.akadUtama)
-      ? loaded
-      : INITIAL_SHARIA_BUSINESS_CASES;
-  });
+  >(() =>
+    sanitizeShariaCases(
+      loadFromLocal<unknown>('shariaBusinessCases', INITIAL_SHARIA_BUSINESS_CASES)
+    )
+  );
   const [shariaConsultations, setShariaConsultations] = useState<
     ShariaConsultationSession[]
   >(() =>
-    loadArrayFromLocal('shariaConsultations', INITIAL_SHARIA_CONSULTATIONS)
+    sanitizeShariaConsultations(
+      loadFromLocal<unknown>('shariaConsultations', INITIAL_SHARIA_CONSULTATIONS)
+    )
   );
 
   const [unreadBroadcastCount, setUnreadBroadcastCount] = useState<number>(2);
@@ -274,7 +335,10 @@ export default function App() {
   };
 
   // Active Santri calculation
-  const activeSantri = santriList.find((s) => s.id === activeSantriId) || santriList[0];
+  const activeSantri =
+    santriList.find((s) => s.id === activeSantriId) ||
+    santriList[0] ||
+    INITIAL_SANTRI_LIST[0];
 
   // Filtered by active santri
   const santriTahfidz = tahfidzList.filter((item) => item.santriId === activeSantri.id);
@@ -724,25 +788,25 @@ export default function App() {
   };
 
   const handleRestoreBackup = (restored: any) => {
-    if (restored.santriList) setSantriList(restored.santriList);
-    if (restored.tahfidzList) setTahfidzList(restored.tahfidzList);
-    if (restored.nilaiList) setNilaiList(restored.nilaiList);
-    if (restored.presensiList) setPresensiList(restored.presensiList);
-    if (restored.disiplinList) setDisiplinList(restored.disiplinList);
-    if (restored.kesehatanList) setKesehatanList(restored.kesehatanList);
-    if (restored.tagihanList) setTagihanList(restored.tagihanList);
-    if (restored.izinList) setIzinList(restored.izinList);
-    if (restored.chatMessages) setChatMessages(restored.chatMessages);
-    if (restored.broadcasts) setBroadcasts(restored.broadcasts);
-    if (restored.agendas) setAgendas(restored.agendas);
-    if (restored.aiKaffahMap) setAiKaffahMap(restored.aiKaffahMap);
-    if (restored.academicGoals) setAcademicGoals(restored.academicGoals);
-    if (restored.smartFacilities) setSmartFacilities(restored.smartFacilities);
-    if (restored.facilityBookings) setFacilityBookings(restored.facilityBookings);
-    if (restored.scholarshipVouchers) setScholarshipVouchers(restored.scholarshipVouchers);
-    if (restored.scholarshipApplications) setScholarshipApplications(restored.scholarshipApplications);
-    if (restored.shariaBusinessCases) setShariaBusinessCases(restored.shariaBusinessCases);
-    if (restored.shariaConsultations) setShariaConsultations(restored.shariaConsultations);
+    if (Array.isArray(restored.santriList) && restored.santriList.length > 0) setSantriList(restored.santriList);
+    if (Array.isArray(restored.tahfidzList)) setTahfidzList(restored.tahfidzList);
+    if (Array.isArray(restored.nilaiList)) setNilaiList(restored.nilaiList);
+    if (Array.isArray(restored.presensiList)) setPresensiList(restored.presensiList);
+    if (Array.isArray(restored.disiplinList)) setDisiplinList(restored.disiplinList);
+    if (Array.isArray(restored.kesehatanList)) setKesehatanList(restored.kesehatanList);
+    if (Array.isArray(restored.tagihanList)) setTagihanList(restored.tagihanList);
+    if (Array.isArray(restored.izinList)) setIzinList(restored.izinList);
+    if (Array.isArray(restored.chatMessages)) setChatMessages(restored.chatMessages);
+    if (Array.isArray(restored.broadcasts)) setBroadcasts(restored.broadcasts);
+    if (Array.isArray(restored.agendas)) setAgendas(restored.agendas);
+    if (restored.aiKaffahMap && typeof restored.aiKaffahMap === 'object') setAiKaffahMap(restored.aiKaffahMap);
+    if (Array.isArray(restored.academicGoals)) setAcademicGoals(restored.academicGoals);
+    if (restored.smartFacilities) setSmartFacilities(sanitizeFacilities(restored.smartFacilities));
+    if (restored.facilityBookings) setFacilityBookings(sanitizeBookings(restored.facilityBookings));
+    if (Array.isArray(restored.scholarshipVouchers)) setScholarshipVouchers(restored.scholarshipVouchers);
+    if (Array.isArray(restored.scholarshipApplications)) setScholarshipApplications(restored.scholarshipApplications);
+    if (restored.shariaBusinessCases) setShariaBusinessCases(sanitizeShariaCases(restored.shariaBusinessCases));
+    if (restored.shariaConsultations) setShariaConsultations(sanitizeShariaConsultations(restored.shariaConsultations));
   };
 
   const fullDatabaseState = {
@@ -809,7 +873,7 @@ export default function App() {
         {/* Main Content Area */}
         <main
           ref={mainRef}
-          className="flex-1 min-w-0 w-full p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden"
+          className="flex-1 min-w-0 w-full p-4 sm:p-6 lg:p-8 overflow-x-hidden"
         >
           <ModuleErrorBoundary
             resetKey={`${activeTab}-${activeSantri.id}`}

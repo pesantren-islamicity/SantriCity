@@ -45,8 +45,12 @@ export async function diagnoseShariaBusiness(params: {
     scenarioLower.includes('spekulasi') ||
     scenarioLower.includes('gharar');
 
+  const safeOmzet = Number.isFinite(Number(omzetBulananRp)) ? Number(omzetBulananRp) : 0;
+  const safeModal = Number.isFinite(Number(modalBerjalanRp)) ? Number(modalBerjalanRp) : 0;
+  const safeMargin = Number.isFinite(Number(marginHalalPersen)) ? Number(marginHalalPersen) : 20;
+
   const labaBersihEstimasi = Math.round(
-    omzetBulananRp * (marginHalalPersen / 100)
+    safeOmzet * (safeMargin / 100)
   );
   const estimasiZakatBulananRp = Math.round(labaBersihEstimasi * 0.025);
 
@@ -61,7 +65,7 @@ export async function diagnoseShariaBusiness(params: {
 
   const baseDayaSaing = Math.min(
     98,
-    Math.max(76, Math.round(74 + marginHalalPersen * 0.6))
+    Math.max(76, Math.round(74 + safeMargin * 0.6))
   );
 
   const statusKepatuhan: ShariaClinicAuditResult['statusKepatuhan'] =
@@ -106,17 +110,17 @@ export async function diagnoseShariaBusiness(params: {
     },
     {
       pilar: 'Kehalalan Produk & Rantai Pasok',
-      status: statusHalal.includes('BPJPH') ? 'Terpenuhi' : 'Perlu Penguatan',
-      catatan: statusHalal.includes('BPJPH')
+      status: safeStatusHalal.includes('BPJPH') ? 'Terpenuhi' : 'Perlu Penguatan',
+      catatan: safeStatusHalal.includes('BPJPH')
         ? 'Legalitas halal BPJPH aktif dan bahan baku terverifikasi thoyyib.'
         : 'Lanjutkan proses sertifikasi halal gratis (SEHATI/BPJPH) dan dokumentasikan pemasok bahan baku.',
     },
     {
       pilar: 'Kejelasan Pembagian Margin / Nisbah',
       status: 'Terpenuhi',
-      catatan: `Margin usaha sehat (${marginHalalPersen}%) dengan estimasi laba bersih Rp ${labaBersihEstimasi.toLocaleString(
+      catatan: `Margin usaha sehat (${safeMargin}%) dengan estimasi laba bersih Rp ${labaBersihEstimasi.toLocaleString(
         'id-ID'
-      )}/bulan dan modal kerja Rp ${modalBerjalanRp.toLocaleString('id-ID')}.`,
+      )}/bulan dan modal kerja Rp ${safeModal.toLocaleString('id-ID')}.`,
     },
     {
       pilar: 'Kewajiban Zakat Tijarah & Infaq Produktif',
@@ -129,13 +133,13 @@ export async function diagnoseShariaBusiness(params: {
 
   let result: ShariaClinicAuditResult = {
     caseId,
-    namaUsaha,
+    namaUsaha: namaUsaha || 'Unit Usaha Santri',
     akadDianalisis: akad,
     assessedAt: new Date().toLocaleString('id-ID'),
     statusKepatuhan,
     skorKepatuhan: baseKepatuhan,
     skorDayaSaingBisnis: baseDayaSaing,
-    ringkasanDiagnosis: `Audit muamalah pada "${namaUsaha}" dengan akad ${akad} menghasilkan status ${statusKepatuhan}. ${akadSpecificNote}`,
+    ringkasanDiagnosis: `Audit muamalah pada "${namaUsaha || 'Unit Usaha Santri'}" dengan akad ${akad} menghasilkan status ${statusKepatuhan}. ${akadSpecificNote}`,
     evaluasiAkad: fallbackPillars,
     rekomendasiEksekusi: [
       `Dokumentasikan lembar akad ${akad} tertulis lengkap dengan rukun ijab-qabul, objek transaksi, dan mekanisme penyelesaian sengketa secara musyawarah.`,
@@ -150,28 +154,41 @@ export async function diagnoseShariaBusiness(params: {
   // Live enrichment via server-side Gemini endpoint
   try {
     const parsed = await postGeminiTask<{
-      ringkasanDiagnosis?: string;
-      rekomendasiEksekusi?: string[];
-      nasihatDewanSyariah?: string;
+      ringkasanDiagnosis?: unknown;
+      rekomendasiEksekusi?: unknown;
+      nasihatDewanSyariah?: unknown;
     }>('klinik-syariah', {
       namaUsaha,
       akad,
-      omzetBulananRp,
-      modalBerjalanRp,
-      marginHalalPersen,
-      statusHalal,
-      keluhanAtauSkenario,
+      omzetBulananRp: safeOmzet,
+      modalBerjalanRp: safeModal,
+      marginHalalPersen: safeMargin,
+      statusHalal: safeStatusHalal,
+      keluhanAtauSkenario: safeScenario,
     });
 
-    if (parsed.ringkasanDiagnosis) {
+    if (parsed && typeof parsed === 'object') {
+      const safeSummary =
+        typeof parsed.ringkasanDiagnosis === 'string' && parsed.ringkasanDiagnosis.trim()
+          ? parsed.ringkasanDiagnosis.trim()
+          : result.ringkasanDiagnosis;
+      const safeRecs = Array.isArray(parsed.rekomendasiEksekusi)
+        ? parsed.rekomendasiEksekusi
+            .map((item) => (typeof item === 'string' ? item.trim() : ''))
+            .filter(Boolean)
+            .slice(0, 4)
+        : [];
+      const safeAdvice =
+        typeof parsed.nasihatDewanSyariah === 'string' && parsed.nasihatDewanSyariah.trim()
+          ? parsed.nasihatDewanSyariah.trim()
+          : result.nasihatDewanSyariah;
+
       result = {
         ...result,
-        ringkasanDiagnosis: parsed.ringkasanDiagnosis,
-        rekomendasiEksekusi: Array.isArray(parsed.rekomendasiEksekusi)
-          ? parsed.rekomendasiEksekusi.slice(0, 4)
-          : result.rekomendasiEksekusi,
-        nasihatDewanSyariah:
-          parsed.nasihatDewanSyariah || result.nasihatDewanSyariah,
+        ringkasanDiagnosis: safeSummary,
+        rekomendasiEksekusi:
+          safeRecs.length > 0 ? safeRecs : result.rekomendasiEksekusi,
+        nasihatDewanSyariah: safeAdvice,
       };
     }
   } catch (err) {

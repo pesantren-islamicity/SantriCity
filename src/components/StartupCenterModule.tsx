@@ -86,6 +86,23 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
   onUpdateBookingStatus,
   currentRole,
 }) => {
+  const safeFacilities = useMemo(
+    () =>
+      (Array.isArray(facilities) ? facilities : []).filter(
+        (f): f is SmartFacilityZone =>
+          Boolean(f && f.lingkunganCerdas && typeof f.nama === 'string')
+      ),
+    [facilities]
+  );
+
+  const safeBookings = useMemo(
+    () =>
+      (Array.isArray(bookings) ? bookings : []).filter(
+        (b): b is FacilityBooking => Boolean(b && b.id && b.facilityNama)
+      ),
+    [bookings]
+  );
+
   const [selectedCategory, setSelectedCategory] =
     useState<SmartFacilityCategory>('Semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -96,7 +113,7 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
   // Booking Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
   const [bookingFacilityId, setBookingFacilityId] = useState<string>(
-    facilities[0]?.id || 'fac-001'
+    safeFacilities[0]?.id || 'fac-001'
   );
   const [bookingDate, setBookingDate] = useState<string>('2026-11-18');
   const [bookingSlot, setBookingSlot] = useState<string>('15:30 - 17:15 WIB');
@@ -128,12 +145,17 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
     const el = chartContainerRef.current;
     if (!el) return;
     const updateSize = () => {
-      const measured = Math.floor(el.getBoundingClientRect().width);
-      if (measured > 0) {
-        setChartWidth(Math.max(240, measured));
+      try {
+        const measured = Math.floor(el.getBoundingClientRect().width);
+        if (measured > 0) {
+          setChartWidth(Math.max(240, measured));
+        }
+      } catch {
+        // ignore measurement failure
       }
     };
     updateSize();
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(updateSize);
     observer.observe(el);
     return () => observer.disconnect();
@@ -142,29 +164,33 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
   // Render QR Code inside pass modal
   useEffect(() => {
     if (activeQrPass && qrCanvasRef.current) {
-      QRCode.toCanvas(
-        qrCanvasRef.current,
-        JSON.stringify({
-          pass: activeQrPass.kodeAksesQr,
-          santri: activeQrPass.santriNama,
-          room: activeQrPass.facilityNama,
-          slot: `${activeQrPass.tanggal} ${activeQrPass.slotWaktu}`,
-        }),
-        {
-          width: 184,
-          margin: 2,
-          color: { dark: '#064e3b', light: '#ffffff' },
-        },
-        (err) => {
-          if (err) console.error('QR generation failed:', err);
-        }
-      );
+      try {
+        QRCode.toCanvas(
+          qrCanvasRef.current,
+          JSON.stringify({
+            pass: activeQrPass.kodeAksesQr,
+            santri: activeQrPass.santriNama,
+            room: activeQrPass.facilityNama,
+            slot: `${activeQrPass.tanggal} ${activeQrPass.slotWaktu}`,
+          }),
+          {
+            width: 184,
+            margin: 2,
+            color: { dark: '#064e3b', light: '#ffffff' },
+          },
+          (err) => {
+            if (err) console.error('QR generation failed:', err);
+          }
+        );
+      } catch (err) {
+        console.warn('QR canvas render skipped:', err);
+      }
     }
   }, [activeQrPass]);
 
   // Aggregate infrastructure metrics across facilities
   const infraMetrics = useMemo(() => {
-    if (!facilities.length) {
+    if (!safeFacilities.length) {
       return {
         avgTemp: 22.2,
         avgAqi: 16,
@@ -178,29 +204,29 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
       };
     }
 
-    const count = facilities.length;
+    const count = safeFacilities.length;
     const avgTemp = Number(
       (
-        facilities.reduce((acc, f) => acc + f.lingkunganCerdas.suhuCelsius, 0) /
+        safeFacilities.reduce((acc, f) => acc + (Number(f.lingkunganCerdas?.suhuCelsius) || 22), 0) /
         count
       ).toFixed(1)
     );
     const avgAqi = Math.round(
-      facilities.reduce((acc, f) => acc + f.lingkunganCerdas.kualitasUdaraAqi, 0) /
+      safeFacilities.reduce((acc, f) => acc + (Number(f.lingkunganCerdas?.kualitasUdaraAqi) || 16), 0) /
         count
     );
     const avgComfort = Math.round(
-      facilities.reduce((acc, f) => acc + f.indeksKenyamanan, 0) / count
+      safeFacilities.reduce((acc, f) => acc + (Number(f.indeksKenyamanan) || 95), 0) / count
     );
     const avgSolar = Math.round(
-      facilities.reduce((acc, f) => acc + f.energiSolarPersen, 0) / count
+      safeFacilities.reduce((acc, f) => acc + (Number(f.energiSolarPersen) || 85), 0) / count
     );
     const maxWifi = Math.max(
-      ...facilities.map((f) => f.lingkunganCerdas.wifiGbps)
+      ...safeFacilities.map((f) => Number(f.lingkunganCerdas?.wifiGbps) || 2.0)
     );
-    const noises = facilities.map((f) => f.lingkunganCerdas.tingkatKebisinganDb);
-    const totalSeats = facilities.reduce((acc, f) => acc + f.kapasitasKursi, 0);
-    const occupiedSeats = facilities.reduce((acc, f) => acc + f.terisiSaatIni, 0);
+    const noises = safeFacilities.map((f) => Number(f.lingkunganCerdas?.tingkatKebisinganDb) || 32);
+    const totalSeats = safeFacilities.reduce((acc, f) => acc + (Number(f.kapasitasKursi) || 1), 0);
+    const occupiedSeats = safeFacilities.reduce((acc, f) => acc + (Number(f.terisiSaatIni) || 0), 0);
 
     return {
       avgTemp,
@@ -213,44 +239,47 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
       totalSeats,
       occupiedSeats,
     };
-  }, [facilities]);
+  }, [safeFacilities]);
 
   // Filtered Facilities
   const filteredFacilities = useMemo(() => {
-    return facilities.filter((f) => {
+    return safeFacilities.filter((f) => {
       const matchCategory =
         selectedCategory === 'Semua' || f.kategori === selectedCategory;
       const q = searchQuery.trim().toLowerCase();
+      const features = Array.isArray(f.infrastrukturUnggulan) ? f.infrastrukturUnggulan : [];
       const matchQuery =
         !q ||
-        f.nama.toLowerCase().includes(q) ||
-        f.kodeRuang.toLowerCase().includes(q) ||
-        f.deskripsi.toLowerCase().includes(q) ||
-        f.infrastrukturUnggulan.some((item) => item.toLowerCase().includes(q));
+        String(f.nama || '').toLowerCase().includes(q) ||
+        String(f.kodeRuang || '').toLowerCase().includes(q) ||
+        String(f.deskripsi || '').toLowerCase().includes(q) ||
+        features.some((item) => String(item || '').toLowerCase().includes(q));
       return matchCategory && matchQuery;
     });
-  }, [facilities, selectedCategory, searchQuery]);
+  }, [safeFacilities, selectedCategory, searchQuery]);
 
   // Filtered Bookings
   const visibleBookings = useMemo(() => {
     if (bookingScope === 'all' && (currentRole === 'ustaz' || currentRole === 'admin')) {
-      return bookings;
+      return safeBookings;
     }
-    return bookings.filter((b) => b.santriId === santri.id);
-  }, [bookings, bookingScope, currentRole, santri.id]);
+    return safeBookings.filter((b) => b.santriId === santri?.id);
+  }, [safeBookings, bookingScope, currentRole, santri?.id]);
 
   // Render D3 Telemetry Bar Chart
   useEffect(() => {
     const svgEl = chartSvgRef.current;
-    if (!svgEl || !facilities.length) return;
+    if (!svgEl || !safeFacilities.length) return;
 
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = prefersReducedMotion ? 0 : 400;
+    try {
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const duration = prefersReducedMotion ? 0 : 400;
 
-    const svg = d3.select(svgEl);
-    svg.selectAll('*').remove();
+      const svg = d3.select(svgEl);
+      svg.selectAll('*').remove();
 
     const isVeryNarrow = chartWidth < 400;
     const isCompact = chartWidth < 560;
@@ -275,10 +304,16 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
+    const getPct = (d: SmartFacilityZone) => {
+      const cap = Math.max(1, Number(d.kapasitasKursi) || 1);
+      const occ = Math.max(0, Number(d.terisiSaatIni) || 0);
+      return Math.min(100, Math.max(0, (occ / cap) * 100));
+    };
+
     const xScale = d3.scaleLinear().domain([0, 100]).range([0, innerWidth]);
     const yScale = d3
       .scaleBand<string>()
-      .domain(facilities.map((f) => f.id))
+      .domain(safeFacilities.map((f) => f.id))
       .range([0, innerHeight])
       .padding(0.32);
 
@@ -298,7 +333,7 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
     // Tracks
     root
       .selectAll('rect.zone-track')
-      .data(facilities)
+      .data(safeFacilities)
       .enter()
       .append('rect')
       .attr('x', 0)
@@ -312,31 +347,25 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
     if (chartMetric === 'occupancy') {
       const bars = root
         .selectAll('rect.zone-fill')
-        .data(facilities)
+        .data(safeFacilities)
         .enter()
         .append('rect')
         .attr('x', 0)
         .attr('y', (d) => yScale(d.id) ?? 0)
         .attr('height', yScale.bandwidth())
         .attr('rx', 5)
-        .attr('fill', (d) => {
-          const pct = (d.terisiSaatIni / d.kapasitasKursi) * 100;
-          if (pct >= 85) return '#f59e0b';
-          return '#10b981';
-        })
+        .attr('fill', (d) => (getPct(d) >= 85 ? '#f59e0b' : '#10b981'))
         .attr('width', 0);
 
       bars
         .transition()
         .duration(duration)
         .ease(d3.easeCubicOut)
-        .attr('width', (d) =>
-          Math.max(4, xScale((d.terisiSaatIni / d.kapasitasKursi) * 100))
-        );
+        .attr('width', (d) => Math.max(4, xScale(getPct(d))));
 
       root
         .selectAll('text.zone-val')
-        .data(facilities)
+        .data(safeFacilities)
         .enter()
         .append('text')
         .attr('y', (d) => (yScale(d.id) ?? 0) + yScale.bandwidth() / 2)
@@ -345,22 +374,19 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
         .attr('font-size', '11px')
         .attr('font-weight', '600')
         .attr('x', (d) => {
-          const pct = (d.terisiSaatIni / d.kapasitasKursi) * 100;
-          const xEnd = xScale(pct);
+          const xEnd = xScale(getPct(d));
           return xEnd > innerWidth - 88 ? xEnd - 8 : xEnd + 8;
         })
-        .attr('text-anchor', (d) => {
-          const pct = (d.terisiSaatIni / d.kapasitasKursi) * 100;
-          return xScale(pct) > innerWidth - 88 ? 'end' : 'start';
-        })
-        .attr('fill', (d) => {
-          const pct = (d.terisiSaatIni / d.kapasitasKursi) * 100;
-          return xScale(pct) > innerWidth - 88 ? '#0a0a0a' : '#e5e5e5';
-        })
+        .attr('text-anchor', (d) =>
+          xScale(getPct(d)) > innerWidth - 88 ? 'end' : 'start'
+        )
+        .attr('fill', (d) =>
+          xScale(getPct(d)) > innerWidth - 88 ? '#0a0a0a' : '#e5e5e5'
+        )
         .text(
           (d) =>
-            `${d.terisiSaatIni}/${d.kapasitasKursi} (${Math.round(
-              (d.terisiSaatIni / d.kapasitasKursi) * 100
+            `${Number(d.terisiSaatIni) || 0}/${Math.max(1, Number(d.kapasitasKursi) || 1)} (${Math.round(
+              getPct(d)
             )}%)`
         );
     } else {
@@ -370,7 +396,7 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
 
       const comfortBars = root
         .selectAll('rect.comfort-fill')
-        .data(facilities)
+        .data(safeFacilities)
         .enter()
         .append('rect')
         .attr('x', 0)
@@ -384,11 +410,13 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
         .transition()
         .duration(duration)
         .ease(d3.easeCubicOut)
-        .attr('width', (d) => Math.max(4, xScale(d.indeksKenyamanan)));
+        .attr('width', (d) =>
+          Math.max(4, xScale(Math.min(100, Math.max(0, Number(d.indeksKenyamanan) || 0))))
+        );
 
       const solarBars = root
         .selectAll('rect.solar-fill')
-        .data(facilities)
+        .data(safeFacilities)
         .enter()
         .append('rect')
         .attr('x', 0)
@@ -402,11 +430,13 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
         .transition()
         .duration(duration)
         .ease(d3.easeCubicOut)
-        .attr('width', (d) => Math.max(4, xScale(d.energiSolarPersen)));
+        .attr('width', (d) =>
+          Math.max(4, xScale(Math.min(100, Math.max(0, Number(d.energiSolarPersen) || 0))))
+        );
 
       root
         .selectAll('text.zone-val')
-        .data(facilities)
+        .data(safeFacilities)
         .enter()
         .append('text')
         .attr('y', (d) => (yScale(d.id) ?? 0) + bandH / 2)
@@ -419,15 +449,15 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
         .attr('fill', isVeryNarrow ? '#e5e5e5' : '#0a0a0a')
         .text((d) =>
           isVeryNarrow
-            ? `${d.indeksKenyamanan}% · ${d.energiSolarPersen}%`
-            : `Nyaman ${d.indeksKenyamanan}% · Surya ${d.energiSolarPersen}%`
+            ? `${Number(d.indeksKenyamanan) || 0}% · ${Number(d.energiSolarPersen) || 0}%`
+            : `Nyaman ${Number(d.indeksKenyamanan) || 0}% · Surya ${Number(d.energiSolarPersen) || 0}%`
         );
     }
 
     // Left Y-axis labels
     const yLabels = root
       .selectAll('g.y-zone')
-      .data(facilities)
+      .data(safeFacilities)
       .enter()
       .append('g')
       .attr(
@@ -443,13 +473,15 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
       .attr('font-size', isCompact ? '10px' : '11px')
       .attr('font-weight', '600')
       .text((d) =>
-        isCompact ? d.kodeRuang : `${d.kodeRuang} · ${d.nama.split(' ').slice(0, 3).join(' ')}`
+        isCompact
+          ? String(d.kodeRuang || '')
+          : `${String(d.kodeRuang || '')} · ${String(d.nama || '').split(' ').slice(0, 3).join(' ')}`
       );
 
     // Hit rectangles for hover summary readout
     root
       .selectAll('rect.zone-hit')
-      .data(facilities)
+      .data(safeFacilities)
       .enter()
       .append('rect')
       .attr('x', 0)
@@ -459,13 +491,13 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
       .attr('fill', 'transparent')
       .style('cursor', 'pointer')
       .on('mouseenter', (_event: MouseEvent, d) => {
-        const occPct = Math.round((d.terisiSaatIni / d.kapasitasKursi) * 100);
+        const occPct = Math.round(getPct(d));
         setChartHoverInfo({
           visible: true,
-          label: `${d.kodeRuang} · ${d.nama}`,
-          metricA: `Okupansi: ${d.terisiSaatIni}/${d.kapasitasKursi} kursi (${occPct}%)`,
-          metricB: `Kenyamanan ${d.indeksKenyamanan}/100 · Surya ${d.energiSolarPersen}%`,
-          note: `Suhu ${d.lingkunganCerdas.suhuCelsius}°C · AQI ${d.lingkunganCerdas.kualitasUdaraAqi} · Kebisingan ${d.lingkunganCerdas.tingkatKebisinganDb} dB · Wi-Fi ${d.lingkunganCerdas.wifiGbps} Gbps`,
+          label: `${String(d.kodeRuang || '')} · ${String(d.nama || '')}`,
+          metricA: `Okupansi: ${Number(d.terisiSaatIni) || 0}/${Math.max(1, Number(d.kapasitasKursi) || 1)} kursi (${occPct}%)`,
+          metricB: `Kenyamanan ${Number(d.indeksKenyamanan) || 0}/100 · Surya ${Number(d.energiSolarPersen) || 0}%`,
+          note: `Suhu ${Number(d.lingkunganCerdas?.suhuCelsius) || 22}°C · AQI ${Number(d.lingkunganCerdas?.kualitasUdaraAqi) || 16} · Kebisingan ${Number(d.lingkunganCerdas?.tingkatKebisinganDb) || 32} dB · Wi-Fi ${Number(d.lingkunganCerdas?.wifiGbps) || 2.5} Gbps`,
         });
       })
       .on('mouseleave', () => {
@@ -489,7 +521,10 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
       .attr('fill', '#a3a3a3')
       .attr('font-size', '11px')
       .attr('font-family', 'JetBrains Mono, monospace');
-  }, [chartMetric, chartWidth, facilities]);
+    } catch (err) {
+      console.warn('StartupCenter D3 chart skipped:', err);
+    }
+  }, [chartMetric, chartWidth, safeFacilities]);
 
   // Compute comfort index deterministically from temperature & lighting settings
   const computeComfortIndex = (temp: number, aqi: number, noise: number) => {
@@ -540,18 +575,18 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
 
   const handleSubmitBooking = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetZone = facilities.find((f) => f.id === bookingFacilityId);
+    const targetZone = safeFacilities.find((f) => f.id === bookingFacilityId);
     if (!targetZone) return;
 
     onAddBooking({
-      santriId: santri.id,
-      santriNama: santri.nama,
+      santriId: santri?.id || 'snt-001',
+      santriNama: santri?.nama || 'Santri',
       facilityId: targetZone.id,
       facilityNama: targetZone.nama,
       tanggal: bookingDate,
       slotWaktu: bookingSlot,
       modeBelajar: bookingMode,
-      jumlahPeserta: Number(bookingParticipants),
+      jumlahPeserta: Number(bookingParticipants) || 1,
       keperluan:
         bookingPurpose.trim() ||
         'Belajar mandiri, riset proyek startup santri, dan penguatan literasi digital.',
@@ -559,12 +594,13 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
     });
 
     // Update current seat occupancy realistically (capped at capacity)
+    const cap = Math.max(1, Number(targetZone.kapasitasKursi) || 1);
     const nextOccupied = Math.min(
-      targetZone.kapasitasKursi,
-      targetZone.terisiSaatIni + Number(bookingParticipants)
+      cap,
+      (Number(targetZone.terisiSaatIni) || 0) + (Number(bookingParticipants) || 1)
     );
     const nextStatus: SmartFacilityZone['statusOperasional'] =
-      nextOccupied / targetZone.kapasitasKursi >= 0.85
+      nextOccupied / cap >= 0.85
         ? 'Hampir Penuh'
         : targetZone.statusOperasional;
 
@@ -579,17 +615,17 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
   };
 
   const handleExportFacilities = () => {
-    const rows = facilities.map((f) => ({
+    const rows = safeFacilities.map((f) => ({
       Kode: f.kodeRuang,
       Fasilitas: f.nama,
       Kategori: f.kategori,
       Lantai: f.lantai,
       Terisi: f.terisiSaatIni,
       Kapasitas: f.kapasitasKursi,
-      SuhuC: f.lingkunganCerdas.suhuCelsius,
-      AQI: f.lingkunganCerdas.kualitasUdaraAqi,
-      KebisinganDb: f.lingkunganCerdas.tingkatKebisinganDb,
-      WifiGbps: f.lingkunganCerdas.wifiGbps,
+      SuhuC: f.lingkunganCerdas?.suhuCelsius ?? 22,
+      AQI: f.lingkunganCerdas?.kualitasUdaraAqi ?? 16,
+      KebisinganDb: f.lingkunganCerdas?.tingkatKebisinganDb ?? 32,
+      WifiGbps: f.lingkunganCerdas?.wifiGbps ?? 2.5,
       IndeksKenyamanan: f.indeksKenyamanan,
       EnergiSuryaPersen: f.energiSolarPersen,
     }));
@@ -627,7 +663,7 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
           <button
             type="button"
             onClick={() =>
-              handleOpenBookingForZone(facilities[0]?.id || 'fac-001')
+              handleOpenBookingForZone(safeFacilities[0]?.id || 'fac-001')
             }
             className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-neutral-950 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
           >
@@ -852,11 +888,16 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredFacilities.map((zone) => {
-            const occRatio = zone.terisiSaatIni / zone.kapasitasKursi;
+            const cap = Math.max(1, Number(zone.kapasitasKursi) || 1);
+            const occ = Math.max(0, Number(zone.terisiSaatIni) || 0);
+            const occRatio = occ / cap;
             const occPct = Math.round(occRatio * 100);
             const barColorClass =
               occPct >= 85 ? 'fill-amber-500' : 'fill-emerald-500';
             const imgFailed = !!failedImages[zone.id];
+            const zoneFeatures = Array.isArray(zone.infrastrukturUnggulan)
+              ? zone.infrastrukturUnggulan
+              : [];
 
             return (
               <article
@@ -956,7 +997,7 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
 
                     {/* Infrastructure Highlights */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-neutral-300">
-                      {zone.infrastrukturUnggulan.map((feat, idx) => (
+                      {zoneFeatures.map((feat, idx) => (
                         <div key={idx} className="flex items-center gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                           <span className="truncate">{feat}</span>
@@ -1236,10 +1277,10 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
                   onChange={(e) => setBookingFacilityId(e.target.value)}
                   className="w-full p-2.5 rounded-lg bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-emerald-500"
                 >
-                  {facilities.map((f) => (
+                  {safeFacilities.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.kodeRuang} · {f.nama} (Tersedia{' '}
-                      {Math.max(0, f.kapasitasKursi - f.terisiSaatIni)} kursi)
+                      {Math.max(0, (Number(f.kapasitasKursi) || 0) - (Number(f.terisiSaatIni) || 0))} kursi)
                     </option>
                   ))}
                 </select>
