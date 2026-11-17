@@ -20,6 +20,8 @@ import {
   Lock,
   ChevronDown,
   Target,
+  Building2,
+  Ticket,
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -33,6 +35,8 @@ export type ActiveTab =
   | 'perizinan'
   | 'chat'
   | 'kalender'
+  | 'startup-center'
+  | 'beasiswa'
   | 'ai'
   | 'admin';
 
@@ -68,6 +72,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'perizinan', label: t.navPerizinan, icon: QrCode },
     { id: 'chat', label: t.navChat, icon: MessageSquare },
     { id: 'kalender', label: t.navKalender, icon: CalendarDays },
+    { id: 'startup-center', label: (t as any).navStartupCenter || 'StartUp Center & Fasilitas', icon: Building2, badge: 'Smart' },
+    { id: 'beasiswa', label: (t as any).navBeasiswa || 'Peluang Beasiswa & Voucher', icon: Ticket, badge: '12 Jalur' },
     { id: 'ai', label: t.navAI, icon: Sparkles, badge: 'AI 360°' },
     { id: 'admin', label: t.navAdmin, icon: ShieldAlert },
   ];

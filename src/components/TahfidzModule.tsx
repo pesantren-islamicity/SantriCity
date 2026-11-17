@@ -29,6 +29,7 @@ import { TahfidzProfileBadgeCard } from './TahfidzProfileBadgeCard';
 import { TahfidzAudioRecorderModal } from './TahfidzAudioRecorderModal';
 import { TahfidzUstazVerificationModal } from './TahfidzUstazVerificationModal';
 import { AITahfidzPlannerPanel } from './AITahfidzPlannerPanel';
+import { TahfidzJuzProgressChart } from './TahfidzJuzProgressChart';
 
 interface TahfidzModuleProps {
   santri: SantriProfile;
@@ -374,6 +375,9 @@ export const TahfidzModule: React.FC<TahfidzModuleProps> = ({
           </p>
         </div>
       </div>
+
+      {/* D3.js Progress Bar Chart: Capaian Juz vs Target Semester */}
+      <TahfidzJuzProgressChart santri={santri} tahfidzList={tahfidzList} />
 
       {/* 30 Juz Visual Grid Matrix */}
       <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-3">

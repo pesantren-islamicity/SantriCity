@@ -23,6 +23,8 @@ export const translations = {
     navPerizinan: 'Perizinan Keluar (QR)',
     navChat: 'Chat & Broadcast 313',
     navKalender: 'Kalender & Jadwal',
+    navStartupCenter: 'StartUp Center & Fasilitas',
+    navBeasiswa: 'Peluang Beasiswa & Voucher',
     navAI: 'Analitik AI Kaffah',
     navAdmin: 'Konsol Admin & Backup',
 
@@ -89,6 +91,8 @@ export const translations = {
     navPerizinan: 'QR Gate Pass Permits',
     navChat: 'Chat & Broadcast 313',
     navKalender: 'Calendar & Timetable',
+    navStartupCenter: 'StartUp Center & Facilities',
+    navBeasiswa: 'Scholarships & Vouchers',
     navAI: 'AI Kaffah Analytics',
     navAdmin: 'Admin & Backup Console',
 
@@ -155,6 +159,8 @@ export const translations = {
     navPerizinan: 'تصاريح الخروج (QR)',
     navChat: 'المراسلات وقناة ۳۱۳',
     navKalender: 'التقويم وجداول المعهد',
+    navStartupCenter: 'مركز الابتكار والمرافق الذكية',
+    navBeasiswa: 'فرص المنح الدراسية والقسائم',
     navAI: 'التحليل الذكي المتكامل',
     navAdmin: 'لوحة التحكم والنسخ',
 

@@ -20,6 +20,11 @@ import {
   AgendaPesantren,
   AIAnalisisKaffah,
   AcademicGoal,
+  SmartFacilityZone,
+  FacilityBooking,
+  ScholarshipProgram,
+  ScholarshipVoucher,
+  ScholarshipApplication,
 } from './types/pesantren';
 import {
   INITIAL_SANTRI_LIST,
@@ -35,6 +40,11 @@ import {
   INITIAL_AGENDA_PESANTREN,
   INITIAL_AI_KAFFAH,
   INITIAL_ACADEMIC_GOALS,
+  INITIAL_SMART_FACILITIES,
+  INITIAL_FACILITY_BOOKINGS,
+  INITIAL_SCHOLARSHIP_PROGRAMS,
+  INITIAL_SCHOLARSHIP_VOUCHERS,
+  INITIAL_SCHOLARSHIP_APPLICATIONS,
 } from './data/mockData';
 import { loadFromLocal, saveToLocal } from './services/storageService';
 import { analyzeSantriKaffah } from './services/geminiService';
@@ -56,6 +66,8 @@ import { KeuanganSppModule } from './components/KeuanganSppModule';
 import { PerizinanQrModule } from './components/PerizinanQrModule';
 import { ChatBroadcastModule } from './components/ChatBroadcastModule';
 import { KalenderModule } from './components/KalenderModule';
+import { StartupCenterModule } from './components/StartupCenterModule';
+import { BeasiswaVoucherModule } from './components/BeasiswaVoucherModule';
 import { AIAnalisisKaffahModule } from './components/AIAnalisisKaffahModule';
 import { AdminConsoleModule } from './components/AdminConsoleModule';
 import { KaffahReportModal } from './components/KaffahReportModal';
@@ -120,6 +132,23 @@ export default function App() {
   const [academicGoals, setAcademicGoals] = useState<AcademicGoal[]>(() =>
     loadFromLocal('academicGoals', INITIAL_ACADEMIC_GOALS)
   );
+  const [smartFacilities, setSmartFacilities] = useState<SmartFacilityZone[]>(() =>
+    loadFromLocal('smartFacilities', INITIAL_SMART_FACILITIES)
+  );
+  const [facilityBookings, setFacilityBookings] = useState<FacilityBooking[]>(() =>
+    loadFromLocal('facilityBookings', INITIAL_FACILITY_BOOKINGS)
+  );
+  const [scholarshipPrograms] = useState<ScholarshipProgram[]>(
+    INITIAL_SCHOLARSHIP_PROGRAMS
+  );
+  const [scholarshipVouchers, setScholarshipVouchers] = useState<
+    ScholarshipVoucher[]
+  >(() => loadFromLocal('scholarshipVouchers', INITIAL_SCHOLARSHIP_VOUCHERS));
+  const [scholarshipApplications, setScholarshipApplications] = useState<
+    ScholarshipApplication[]
+  >(() =>
+    loadFromLocal('scholarshipApplications', INITIAL_SCHOLARSHIP_APPLICATIONS)
+  );
 
   const [unreadBroadcastCount, setUnreadBroadcastCount] = useState<number>(2);
   const [readGoalAlertIds, setReadGoalAlertIds] = useState<string[]>(() => getReadAlertIds());
@@ -175,6 +204,10 @@ export default function App() {
     saveToLocal('agendas', agendas);
     saveToLocal('aiKaffahMap', aiKaffahMap);
     saveToLocal('academicGoals', academicGoals);
+    saveToLocal('smartFacilities', smartFacilities);
+    saveToLocal('facilityBookings', facilityBookings);
+    saveToLocal('scholarshipVouchers', scholarshipVouchers);
+    saveToLocal('scholarshipApplications', scholarshipApplications);
   }, [
     santriList,
     activeSantriId,
@@ -190,6 +223,10 @@ export default function App() {
     agendas,
     aiKaffahMap,
     academicGoals,
+    smartFacilities,
+    facilityBookings,
+    scholarshipVouchers,
+    scholarshipApplications,
   ]);
 
   // Dark Mode root class syncing
@@ -431,6 +468,73 @@ export default function App() {
     setAgendas([newAg, ...agendas]);
   };
 
+  const handleUpdateFacility = (updated: SmartFacilityZone) => {
+    setSmartFacilities((prev) =>
+      prev.map((item) => (item.id === updated.id ? updated : item))
+    );
+  };
+
+  const handleAddBooking = (
+    booking: Omit<FacilityBooking, 'id' | 'kodeAksesQr'>
+  ) => {
+    const shortName = booking.santriNama.split(' ')[0].toUpperCase();
+    const newBooking: FacilityBooking = {
+      ...booking,
+      id: `bk-${Date.now()}`,
+      kodeAksesQr: `SC-PASS-${new Date().getFullYear()}-${shortName}-${Math.floor(
+        100 + Math.random() * 900
+      )}`,
+    };
+    setFacilityBookings((prev) => [newBooking, ...prev]);
+  };
+
+  const handleUpdateBookingStatus = (
+    bookingId: string,
+    status: FacilityBooking['status']
+  ) => {
+    setFacilityBookings((prev) =>
+      prev.map((item) => (item.id === bookingId ? { ...item, status } : item))
+    );
+  };
+
+  const handleClaimVoucher = (voucherId: string) => {
+    setScholarshipVouchers((prev) =>
+      prev.map((v) =>
+        v.id === voucherId ? { ...v, status: 'Sudah Diklaim' } : v
+      )
+    );
+  };
+
+  const handleIssueVoucher = (
+    voucher: Omit<ScholarshipVoucher, 'id' | 'kodeVoucher'>
+  ) => {
+    const newVoucher: ScholarshipVoucher = {
+      ...voucher,
+      id: `vcr-${Date.now()}`,
+      kodeVoucher: `VCR-SC-${Math.floor(100000 + Math.random() * 900000)}`,
+    };
+    setScholarshipVouchers((prev) => [newVoucher, ...prev]);
+  };
+
+  const handleSubmitScholarshipApp = (
+    application: Omit<ScholarshipApplication, 'id'>
+  ) => {
+    const newApp: ScholarshipApplication = {
+      ...application,
+      id: `app-${Date.now()}`,
+    };
+    setScholarshipApplications((prev) => [newApp, ...prev]);
+  };
+
+  const handleUpdateScholarshipAppStatus = (
+    applicationId: string,
+    status: ScholarshipApplication['status']
+  ) => {
+    setScholarshipApplications((prev) =>
+      prev.map((a) => (a.id === applicationId ? { ...a, status } : a))
+    );
+  };
+
   const handleRunAiAnalysis = async () => {
     setIsAiAnalyzing(true);
     try {
@@ -467,6 +571,10 @@ export default function App() {
     if (restored.agendas) setAgendas(restored.agendas);
     if (restored.aiKaffahMap) setAiKaffahMap(restored.aiKaffahMap);
     if (restored.academicGoals) setAcademicGoals(restored.academicGoals);
+    if (restored.smartFacilities) setSmartFacilities(restored.smartFacilities);
+    if (restored.facilityBookings) setFacilityBookings(restored.facilityBookings);
+    if (restored.scholarshipVouchers) setScholarshipVouchers(restored.scholarshipVouchers);
+    if (restored.scholarshipApplications) setScholarshipApplications(restored.scholarshipApplications);
   };
 
   const fullDatabaseState = {
@@ -484,6 +592,10 @@ export default function App() {
     agendas,
     aiKaffahMap,
     academicGoals,
+    smartFacilities,
+    facilityBookings,
+    scholarshipVouchers,
+    scholarshipApplications,
     exportedAt: new Date().toISOString(),
   };
 
@@ -532,6 +644,7 @@ export default function App() {
               izinList={santriIzin}
               broadcasts={broadcasts}
               aiKaffah={santriAiKaffah}
+              academicGoals={academicGoals}
               lang={lang}
               currentRole={currentRole}
               onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
@@ -638,6 +751,35 @@ export default function App() {
             <KalenderModule
               agendas={agendas}
               onAddAgenda={handleAddAgenda}
+              currentRole={currentRole}
+              lang={lang}
+            />
+          )}
+
+          {activeTab === 'startup-center' && (
+            <StartupCenterModule
+              santri={activeSantri}
+              facilities={smartFacilities}
+              bookings={facilityBookings}
+              onUpdateFacility={handleUpdateFacility}
+              onAddBooking={handleAddBooking}
+              onUpdateBookingStatus={handleUpdateBookingStatus}
+              currentRole={currentRole}
+              lang={lang}
+            />
+          )}
+
+          {activeTab === 'beasiswa' && (
+            <BeasiswaVoucherModule
+              santri={activeSantri}
+              nilaiList={santriNilai}
+              programs={scholarshipPrograms}
+              vouchers={scholarshipVouchers}
+              applications={scholarshipApplications}
+              onClaimVoucher={handleClaimVoucher}
+              onIssueVoucher={handleIssueVoucher}
+              onSubmitApplication={handleSubmitScholarshipApp}
+              onUpdateApplicationStatus={handleUpdateScholarshipAppStatus}
               currentRole={currentRole}
               lang={lang}
             />

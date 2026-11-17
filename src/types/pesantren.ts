@@ -699,3 +699,152 @@ export interface AITahfidzPlannerPlan {
     catatanUntukMusyrif: string;
   };
 }
+
+export type SmartFacilityCategory =
+  | 'Semua'
+  | 'Co-Working & Riset'
+  | 'Lab AI & Robotika'
+  | 'Studio Media & Dakwah'
+  | 'Ruang Fokus Akustik';
+
+export type LightingMode =
+  | 'Fokus Pagi (5000K)'
+  | 'Nyaman Siang (4000K)'
+  | 'Teduh Malam (3000K)';
+
+export interface SmartFacilityEnvironment {
+  suhuCelsius: number;
+  kelembapanPersen: number;
+  kualitasUdaraAqi: number;
+  pencahayaanLux: number;
+  tingkatKebisinganDb: number;
+  wifiGbps: number;
+  dayaCadanganUps: string;
+  modePencahayaan: LightingMode;
+}
+
+export interface SmartFacilityZone {
+  id: string;
+  kodeRuang: string;
+  nama: string;
+  namaArab: string;
+  kategori: Exclude<SmartFacilityCategory, 'Semua'>;
+  lantai: string;
+  kapasitasKursi: number;
+  terisiSaatIni: number;
+  statusOperasional: 'Tersedia' | 'Hampir Penuh' | 'Sesi Terjadwal' | 'Pemeliharaan';
+  fotoUrl: string;
+  deskripsi: string;
+  infrastrukturUnggulan: string[];
+  lingkunganCerdas: SmartFacilityEnvironment;
+  indeksKenyamanan: number; // 0 - 100
+  energiSolarPersen: number; // 0 - 100
+}
+
+export interface FacilityBooking {
+  id: string;
+  santriId: string;
+  santriNama: string;
+  facilityId: string;
+  facilityNama: string;
+  tanggal: string;
+  slotWaktu: string;
+  modeBelajar:
+    | 'Deep Work / Fokus'
+    | 'Diskusi Tim Startup'
+    | 'Riset & Coding'
+    | 'Produksi Konten'
+    | 'Murajaah Akustik';
+  jumlahPeserta: number;
+  keperluan: string;
+  status: 'Dikonfirmasi' | 'Sedang Berlangsung' | 'Selesai' | 'Dibatalkan';
+  kodeAksesQr: string;
+}
+
+export type AchievementMedalTier =
+  | 'Kehormatan (Platinum)'
+  | 'Emas (Gold)'
+  | 'Perak (Silver)'
+  | 'Perunggu (Bronze)';
+
+export type AchievementMedalDomain =
+  | "Tahfidz Al-Qur'an"
+  | 'Target Akademik'
+  | 'Prestasi Terpadu';
+
+export interface AchievementMedal {
+  id: string;
+  kodeMedali: string;
+  judul: string;
+  judulArab: string;
+  domain: AchievementMedalDomain;
+  tier: AchievementMedalTier;
+  ikon: 'crown' | 'trophy' | 'medal' | 'award' | 'star' | 'sparkles';
+  isEarned: boolean;
+  progressPercent: number;
+  progressLabel: string;
+  kriteria: string;
+  diperolehPada?: string;
+  sumberPencapaian: string;
+  penghargaan: string;
+}
+
+export type ScholarshipCategory =
+  | 'Semua'
+  | 'Pemerintah & Kedinasan'
+  | 'Tahfidz & Riset'
+  | 'Mitra & Korporasi'
+  | 'Prestasi & Talenta';
+
+export interface ScholarshipProgram {
+  id: string;
+  kode: string;
+  nama: string;
+  penyelenggara: string;
+  kategori: Exclude<ScholarshipCategory, 'Semua'>;
+  dukunganFinansial: string;
+  voucherPendidikanNominal: number;
+  voucherBenefit: string;
+  syaratMinimalJuz?: number;
+  syaratMinimalNilai?: number;
+  syaratMinimalDisiplin?: number;
+  kuotaTersedia: number;
+  batasPendaftaran: string;
+  fokusUnggulan: string[];
+}
+
+export interface ScholarshipVoucher {
+  id: string;
+  santriId: string;
+  kodeVoucher: string;
+  judul: string;
+  programBeasiswa: string;
+  nominalRupiah: number;
+  kategoriVoucher:
+    | 'Pembebasan SPP/UKT'
+    | 'Voucher Riset & StartUp Center'
+    | 'Tunjangan Kitab & Literatur'
+    | 'Subsidi Asrama & Konsumsi';
+  berlakuHingga: string;
+  status: 'Aktif Siap Pakai' | 'Sudah Diklaim' | 'Menunggu Verifikasi';
+}
+
+export interface ScholarshipApplication {
+  id: string;
+  santriId: string;
+  santriNama: string;
+  scholarshipId: string;
+  scholarshipNama: string;
+  tanggalDaftar: string;
+  jalurPrestasi: string;
+  estimasiVoucher: number;
+  catatanMotivasi: string;
+  status:
+    | 'Diajukan'
+    | 'Seleksi Berkas'
+    | 'Disetujui / Aktif'
+    | 'Perlu Lengkapi Berkas';
+}
+
+
+

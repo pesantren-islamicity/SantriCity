@@ -9,6 +9,7 @@ import {
   IzinKeluarPondok,
   BroadcastTelegram,
   AIAnalisisKaffah,
+  AcademicGoal,
   Language,
   UserRole,
 } from '../types/pesantren';
@@ -28,9 +29,12 @@ import {
   MessageCircle,
   Target,
   Radio,
+  Cpu,
+  Ticket,
 } from 'lucide-react';
 import { AIDailyDigestSection } from './AIDailyDigestSection';
 import { GrowthTimelineSection } from './GrowthTimelineSection';
+import { HonorsMedalsSection } from './HonorsMedalsSection';
 
 interface DashboardKaffahProps {
   santri: SantriProfile;
@@ -42,6 +46,7 @@ interface DashboardKaffahProps {
   izinList: IzinKeluarPondok[];
   broadcasts: BroadcastTelegram[];
   aiKaffah: AIAnalisisKaffah;
+  academicGoals?: AcademicGoal[];
   lang: Language;
   currentRole: UserRole;
   onNavigateTab: (tab: string) => void;
@@ -61,6 +66,7 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
   izinList,
   broadcasts,
   aiKaffah,
+  academicGoals = [],
   lang,
   currentRole,
   onNavigateTab,
@@ -298,6 +304,15 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Dedicated Honors Section: Digital Achievement Medals */}
+      <HonorsMedalsSection
+        santri={santri}
+        tahfidzList={tahfidzList}
+        nilaiList={nilaiList}
+        academicGoals={academicGoals}
+        onNavigateTab={onNavigateTab}
+      />
 
       {/* AI Daily Digest (Prayer Punctuality, Health Status, & Recent Academic Progress) */}
       <AIDailyDigestSection
@@ -563,6 +578,59 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
               </button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* StartUp Center & Peluang Beasiswa Quick Access */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shrink-0">
+              <Cpu className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">
+                StartUp Center & Fasilitas Belajar Cerdas
+              </h3>
+              <p className="text-xs text-neutral-400">
+                Co-Working Lounge · Lab AI · Studio Media · Wi-Fi 6E 2.5 Gbps · Kontrol Suhu
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('startup-center')}
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-neutral-950 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <span>Jelajahi</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shrink-0">
+              <Ticket className="w-5 h-5 text-amber-400" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">
+                Peluang Beasiswa & Voucher Pendidikan
+              </h3>
+              <p className="text-xs text-neutral-400">
+                12 Jalur Beasiswa (KIP, BI, BIB, Tahfizh, BAZNAS, POLRI) & Dompet Voucher
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('beasiswa')}
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <span>Lihat Peluang</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>
