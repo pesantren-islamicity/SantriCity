@@ -32,7 +32,9 @@ export async function diagnoseShariaBusiness(params: {
     keluhanAtauSkenario,
   } = params;
 
-  const scenarioLower = keluhanAtauSkenario.toLowerCase();
+  const safeScenario = typeof keluhanAtauSkenario === 'string' ? keluhanAtauSkenario : '';
+  const safeStatusHalal = typeof statusHalal === 'string' ? statusHalal : 'Siap Pengajuan';
+  const scenarioLower = safeScenario.toLowerCase();
   const hasRibaKeyword =
     scenarioLower.includes('bunga') ||
     scenarioLower.includes('denda keterlambatan berlipat') ||
@@ -53,7 +55,7 @@ export async function diagnoseShariaBusiness(params: {
     ? 68
     : hasGhararKeyword
     ? 79
-    : statusHalal.includes('BPJPH')
+    : safeStatusHalal.includes('BPJPH')
     ? 96
     : 91;
 
@@ -65,7 +67,7 @@ export async function diagnoseShariaBusiness(params: {
   const statusKepatuhan: ShariaClinicAuditResult['statusKepatuhan'] =
     hasRibaKeyword
       ? 'Perlu Koreksi Mendesak (Risiko Gharar/Riba)'
-      : hasGhararKeyword || !statusHalal.includes('BPJPH')
+      : hasGhararKeyword || !safeStatusHalal.includes('BPJPH')
       ? 'Memerlukan Penyempurnaan Akad'
       : 'Sah & Sesuai Kaidah Syariah';
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useState, useEffect, useMemo, useRef } from 'react';
 import {
   UserRole,
   Language,
@@ -80,6 +80,85 @@ import { NotificationDrawer } from './components/NotificationDrawer';
 import { NotificationToastBanner } from './components/NotificationToastBanner';
 import { PushNotificationSimulatorModal } from './components/PushNotificationSimulatorModal';
 
+interface ModuleErrorBoundaryProps {
+  resetKey: string;
+  onBackToOverview: () => void;
+  children: ReactNode;
+}
+
+interface ModuleErrorBoundaryState {
+  hasError: boolean;
+  errorMessage: string;
+}
+
+class ModuleErrorBoundary extends Component<
+  ModuleErrorBoundaryProps,
+  ModuleErrorBoundaryState
+> {
+  state: ModuleErrorBoundaryState = { hasError: false, errorMessage: '' };
+
+  static getDerivedStateFromError(error: Error): ModuleErrorBoundaryState {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'Terjadi kendala saat memuat modul.',
+    };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Module render error:', error, info);
+  }
+
+  componentDidUpdate(prevProps: ModuleErrorBoundaryProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, errorMessage: '' });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-3 text-xs">
+          <h3 className="text-sm font-bold text-white">
+            Tampilan Modul Perlu Dimuat Ulang
+          </h3>
+          <p className="text-neutral-400 leading-relaxed">
+            {this.state.errorMessage}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => this.setState({ hasError: false, errorMessage: '' })}
+              className="px-3.5 py-2 rounded-lg font-semibold bg-emerald-500 hover:bg-emerald-400 text-neutral-950 cursor-pointer"
+            >
+              Muat Ulang Modul
+            </button>
+            <button
+              type="button"
+              onClick={this.props.onBackToOverview}
+              className="px-3.5 py-2 rounded-lg font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 cursor-pointer"
+            >
+              Kembali ke Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function loadArrayFromLocal<T>(
+  key: string,
+  fallback: T[],
+  requireNonEmpty = false
+): T[] {
+  const loaded = loadFromLocal<unknown>(key, fallback);
+  if (!Array.isArray(loaded)) return fallback;
+  if (requireNonEmpty && loaded.length === 0) return fallback;
+  return loaded as T[];
+}
+
 export default function App() {
   // Global State
   const [currentRole, setCurrentRole] = useState<UserRole>('wali');
@@ -138,32 +217,38 @@ export default function App() {
   const [academicGoals, setAcademicGoals] = useState<AcademicGoal[]>(() =>
     loadFromLocal('academicGoals', INITIAL_ACADEMIC_GOALS)
   );
-  const [smartFacilities, setSmartFacilities] = useState<SmartFacilityZone[]>(() =>
-    loadFromLocal('smartFacilities', INITIAL_SMART_FACILITIES)
-  );
+  const [smartFacilities, setSmartFacilities] = useState<SmartFacilityZone[]>(() => {
+    const loaded = loadArrayFromLocal('smartFacilities', INITIAL_SMART_FACILITIES, true);
+    return loaded.every((item) => item && item.lingkunganCerdas)
+      ? loaded
+      : INITIAL_SMART_FACILITIES;
+  });
   const [facilityBookings, setFacilityBookings] = useState<FacilityBooking[]>(() =>
-    loadFromLocal('facilityBookings', INITIAL_FACILITY_BOOKINGS)
+    loadArrayFromLocal('facilityBookings', INITIAL_FACILITY_BOOKINGS)
   );
   const [scholarshipPrograms] = useState<ScholarshipProgram[]>(
     INITIAL_SCHOLARSHIP_PROGRAMS
   );
   const [scholarshipVouchers, setScholarshipVouchers] = useState<
     ScholarshipVoucher[]
-  >(() => loadFromLocal('scholarshipVouchers', INITIAL_SCHOLARSHIP_VOUCHERS));
+  >(() => loadArrayFromLocal('scholarshipVouchers', INITIAL_SCHOLARSHIP_VOUCHERS));
   const [scholarshipApplications, setScholarshipApplications] = useState<
     ScholarshipApplication[]
   >(() =>
-    loadFromLocal('scholarshipApplications', INITIAL_SCHOLARSHIP_APPLICATIONS)
+    loadArrayFromLocal('scholarshipApplications', INITIAL_SCHOLARSHIP_APPLICATIONS)
   );
   const [shariaBusinessCases, setShariaBusinessCases] = useState<
     ShariaBusinessClinicCase[]
-  >(() =>
-    loadFromLocal('shariaBusinessCases', INITIAL_SHARIA_BUSINESS_CASES)
-  );
+  >(() => {
+    const loaded = loadArrayFromLocal('shariaBusinessCases', INITIAL_SHARIA_BUSINESS_CASES, true);
+    return loaded.every((item) => item && item.namaUsaha && item.akadUtama)
+      ? loaded
+      : INITIAL_SHARIA_BUSINESS_CASES;
+  });
   const [shariaConsultations, setShariaConsultations] = useState<
     ShariaConsultationSession[]
   >(() =>
-    loadFromLocal('shariaConsultations', INITIAL_SHARIA_CONSULTATIONS)
+    loadArrayFromLocal('shariaConsultations', INITIAL_SHARIA_CONSULTATIONS)
   );
 
   const [unreadBroadcastCount, setUnreadBroadcastCount] = useState<number>(2);
@@ -278,6 +363,38 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Reset viewport & main container scroll position whenever activeTab changes (fixes mobile blank screen after deep scroll)
+  const mainRef = useRef<HTMLElement | null>(null);
+
+  const scrollToTopOfPage = () => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+    if (typeof document !== 'undefined') {
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    }
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  };
+
+  useEffect(() => {
+    scrollToTopOfPage();
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      const rafId = window.requestAnimationFrame(() => {
+        scrollToTopOfPage();
+      });
+      return () => window.cancelAnimationFrame(rafId);
+    }
+  }, [activeTab]);
+
+  const handleNavigateTab = (nextTab: ActiveTab) => {
+    setActiveTab(nextTab);
+    setIsMobileMenuOpen(false);
+    scrollToTopOfPage();
+  };
 
   // Sync Simulation
   const handleManualSync = () => {
@@ -678,7 +795,7 @@ export default function App() {
         {/* Sidebar Navigation */}
         <Sidebar
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleNavigateTab}
           currentRole={currentRole}
           onRoleChange={setCurrentRole}
           lang={lang}
@@ -690,7 +807,14 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main
+          ref={mainRef}
+          className="flex-1 min-w-0 w-full p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden"
+        >
+          <ModuleErrorBoundary
+            resetKey={`${activeTab}-${activeSantri.id}`}
+            onBackToOverview={() => handleNavigateTab('overview')}
+          >
           {activeTab === 'overview' && (
             <DashboardKaffah
               santri={activeSantri}
@@ -707,7 +831,7 @@ export default function App() {
               academicGoals={academicGoals}
               lang={lang}
               currentRole={currentRole}
-              onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
+              onNavigateTab={(tab) => handleNavigateTab(tab as ActiveTab)}
               onOpenReportModal={() => setIsReportModalOpen(true)}
               onRunAiAnalysis={handleRunAiAnalysis}
               isAiAnalyzing={isAiAnalyzing}
@@ -874,6 +998,13 @@ export default function App() {
           {activeTab === 'admin' && (
             <AdminConsoleModule
               santriList={santriList}
+              tahfidzList={tahfidzList}
+              nilaiList={nilaiList}
+              presensiList={presensiList}
+              disiplinList={disiplinList}
+              kesehatanList={kesehatanList}
+              tagihanList={tagihanList}
+              aiKaffahMap={aiKaffahMap}
               broadcasts={broadcasts}
               onAddBroadcast={handleAddBroadcast}
               fullDatabaseState={fullDatabaseState}
@@ -885,6 +1016,7 @@ export default function App() {
               lang={lang}
             />
           )}
+          </ModuleErrorBoundary>
         </main>
       </div>
 

@@ -112,8 +112,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] md:static md:w-64 lg:w-72 shrink-0 border-r border-neutral-800 bg-neutral-950 p-4 flex flex-col justify-between h-screen md:h-[calc(100vh-61px)] md:sticky md:top-[61px] overflow-y-auto transition-transform duration-200 ease-out ${
-          isMobileOpen ? 'translate-x-0 shadow-2xl shadow-black/80' : '-translate-x-full md:translate-x-0'
+        aria-label="Menu navigasi SantriCity"
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] md:static md:w-64 lg:w-72 shrink-0 border-r border-neutral-800 bg-neutral-950 p-4 pb-6 flex flex-col justify-between h-dvh md:h-[calc(100vh-61px)] md:sticky md:top-[61px] overflow-y-auto overscroll-contain transition-transform duration-200 ease-out ${
+          isMobileOpen
+            ? 'translate-x-0 pointer-events-auto shadow-2xl shadow-black/80'
+            : '-translate-x-full pointer-events-none md:translate-x-0 md:pointer-events-auto'
         }`}
       >
         <div className="space-y-4">
@@ -202,11 +205,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => {
                     onTabChange(item.id);
                     onCloseMobile?.();
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                     isActive
                       ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/40 shadow-sm shadow-emerald-950'
                       : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/70'

@@ -453,7 +453,7 @@ export const BeasiswaVoucherModule: React.FC<BeasiswaVoucherModuleProps> = ({
 
       {/* Sub-Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800 overflow-x-auto max-w-full">
           <button
             type="button"
             onClick={() => setActiveSubTab('direktori')}
@@ -856,8 +856,8 @@ export const BeasiswaVoucherModule: React.FC<BeasiswaVoucherModuleProps> = ({
 
       {/* Modal: Apply Scholarship */}
       {applyingProgram && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
@@ -937,8 +937,8 @@ export const BeasiswaVoucherModule: React.FC<BeasiswaVoucherModuleProps> = ({
 
       {/* Modal: Issue Voucher (Admin/Keuangan/Ustaz) */}
       {isIssueVoucherOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <h3 className="text-sm font-bold text-white">
                 Terbitkan Voucher Pendidikan Santri

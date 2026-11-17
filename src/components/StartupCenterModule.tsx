@@ -128,7 +128,10 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
     const el = chartContainerRef.current;
     if (!el) return;
     const updateSize = () => {
-      setChartWidth(Math.max(320, Math.floor(el.getBoundingClientRect().width)));
+      const measured = Math.floor(el.getBoundingClientRect().width);
+      if (measured > 0) {
+        setChartWidth(Math.max(240, measured));
+      }
     };
     updateSize();
     const observer = new ResizeObserver(updateSize);
@@ -249,22 +252,24 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
     const svg = d3.select(svgEl);
     svg.selectAll('*').remove();
 
+    const isVeryNarrow = chartWidth < 400;
     const isCompact = chartWidth < 560;
     const margin = {
       top: 16,
-      right: isCompact ? 20 : 32,
+      right: isVeryNarrow ? 14 : isCompact ? 20 : 32,
       bottom: 32,
-      left: isCompact ? 130 : 210,
+      left: isVeryNarrow ? 74 : isCompact ? 124 : 210,
     };
 
     const height = 228;
-    const innerWidth = Math.max(150, chartWidth - margin.left - margin.right);
+    const innerWidth = Math.max(120, chartWidth - margin.left - margin.right);
     const innerHeight = height - margin.top - margin.bottom;
 
     svg
-      .attr('width', chartWidth)
+      .attr('width', '100%')
       .attr('height', height)
-      .attr('viewBox', `0 0 ${chartWidth} ${height}`);
+      .attr('viewBox', `0 0 ${chartWidth} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
 
     const root = svg
       .append('g')
@@ -409,10 +414,14 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
         .attr('x', innerWidth - 8)
         .attr('text-anchor', 'end')
         .attr('font-family', 'JetBrains Mono, monospace')
-        .attr('font-size', '10px')
+        .attr('font-size', isVeryNarrow ? '9px' : '10px')
         .attr('font-weight', '600')
-        .attr('fill', '#0a0a0a')
-        .text((d) => `Nyaman ${d.indeksKenyamanan}% · Surya ${d.energiSolarPersen}%`);
+        .attr('fill', isVeryNarrow ? '#e5e5e5' : '#0a0a0a')
+        .text((d) =>
+          isVeryNarrow
+            ? `${d.indeksKenyamanan}% · ${d.energiSolarPersen}%`
+            : `Nyaman ${d.indeksKenyamanan}% · Surya ${d.energiSolarPersen}%`
+        );
     }
 
     // Left Y-axis labels
@@ -591,8 +600,8 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
     <div className="space-y-6">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-bold text-white tracking-tight">
               StartUp Center & Fasilitas Cerdas
             </h2>
@@ -1198,8 +1207,8 @@ export const StartupCenterModule: React.FC<StartupCenterModuleProps> = ({
 
       {/* Modal: New Workspace Reservation */}
       {isBookingModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-emerald-400" />

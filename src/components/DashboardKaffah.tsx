@@ -37,6 +37,7 @@ import { AIDailyDigestSection } from './AIDailyDigestSection';
 import { GrowthTimelineSection } from './GrowthTimelineSection';
 import { HonorsMedalsSection } from './HonorsMedalsSection';
 import { GlobalTahfidzLeaderboard } from './GlobalTahfidzLeaderboard';
+import { LearningStreakTracker } from './LearningStreakTracker';
 
 interface DashboardKaffahProps {
   santri: SantriProfile;
@@ -312,6 +313,14 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Learning Streak & Consistency Badges */}
+      <LearningStreakTracker
+        santri={santri}
+        tahfidzList={tahfidzList}
+        presensiList={presensiList}
+        onNavigateTab={onNavigateTab}
+      />
 
       {/* Dedicated Honors Section: Digital Achievement Medals */}
       <HonorsMedalsSection

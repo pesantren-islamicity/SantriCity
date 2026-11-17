@@ -138,7 +138,10 @@ export const KlinikBisnisSyariahModule: React.FC<
     const el = chartContainerRef.current;
     if (!el) return;
     const updateSize = () => {
-      setChartWidth(Math.max(320, Math.floor(el.getBoundingClientRect().width)));
+      const measured = Math.floor(el.getBoundingClientRect().width);
+      if (measured > 0) {
+        setChartWidth(Math.max(240, measured));
+      }
     };
     updateSize();
     const observer = new ResizeObserver(updateSize);
@@ -149,7 +152,11 @@ export const KlinikBisnisSyariahModule: React.FC<
   // Load initial audit automatically on first mount
   useEffect(() => {
     if (!auditResult && cases[0]) {
-      buildAuditFromBusinessCase(cases[0]).then(setAuditResult);
+      buildAuditFromBusinessCase(cases[0])
+        .then(setAuditResult)
+        .catch((err) => {
+          console.warn('Initial audit load failed:', err);
+        });
     }
   }, [cases]);
 
@@ -193,22 +200,24 @@ export const KlinikBisnisSyariahModule: React.FC<
     const svg = d3.select(svgEl);
     svg.selectAll('*').remove();
 
+    const isVeryNarrow = chartWidth < 400;
     const isCompact = chartWidth < 560;
     const margin = {
       top: 16,
-      right: isCompact ? 20 : 32,
+      right: isVeryNarrow ? 14 : isCompact ? 20 : 32,
       bottom: 32,
-      left: isCompact ? 132 : 220,
+      left: isVeryNarrow ? 98 : isCompact ? 132 : 220,
     };
 
     const height = 224;
-    const innerWidth = Math.max(150, chartWidth - margin.left - margin.right);
+    const innerWidth = Math.max(120, chartWidth - margin.left - margin.right);
     const innerHeight = height - margin.top - margin.bottom;
 
     svg
-      .attr('width', chartWidth)
+      .attr('width', '100%')
       .attr('height', height)
-      .attr('viewBox', `0 0 ${chartWidth} ${height}`);
+      .attr('viewBox', `0 0 ${chartWidth} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
 
     const root = svg
       .append('g')
@@ -277,10 +286,14 @@ export const KlinikBisnisSyariahModule: React.FC<
       .attr('x', (d) => xScale(d.skorKepatuhanSyariah) - 8)
       .attr('text-anchor', 'end')
       .attr('font-family', 'JetBrains Mono, monospace')
-      .attr('font-size', '11px')
+      .attr('font-size', isVeryNarrow ? '10px' : '11px')
       .attr('font-weight', '700')
       .attr('fill', '#0a0a0a')
-      .text((d) => `${d.skorKepatuhanSyariah}% · ${d.akadUtama}`);
+      .text((d) =>
+        isVeryNarrow
+          ? `${d.skorKepatuhanSyariah}%`
+          : `${d.skorKepatuhanSyariah}% · ${d.akadUtama}`
+      );
 
     root
       .selectAll('text.biz-label')
@@ -295,7 +308,11 @@ export const KlinikBisnisSyariahModule: React.FC<
       .attr('font-size', isCompact ? '10px' : '11px')
       .attr('font-weight', '600')
       .text((d) =>
-        isCompact ? d.namaUsaha.slice(0, 18) : d.namaUsaha.slice(0, 30)
+        isVeryNarrow
+          ? d.namaUsaha.slice(0, 14)
+          : isCompact
+          ? d.namaUsaha.slice(0, 18)
+          : d.namaUsaha.slice(0, 30)
       );
 
     root
@@ -1036,7 +1053,7 @@ export const KlinikBisnisSyariahModule: React.FC<
       {/* TAB 3: INCUBATED BUSINESS PORTFOLIO */}
       {activeSubTab === 'portofolio' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-neutral-400">
               Unit usaha santri dan koperasi binaan Klinik Bisnis Syariah SantriCity.
             </p>
@@ -1250,8 +1267,8 @@ export const KlinikBisnisSyariahModule: React.FC<
 
       {/* Modal: Schedule Sharia Business Consultation */}
       {isConsultModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <div className="flex items-center gap-2">
                 <Scale className="w-4 h-4 text-emerald-400" />
@@ -1363,8 +1380,8 @@ export const KlinikBisnisSyariahModule: React.FC<
 
       {/* Modal: Register New Business Unit */}
       {isAddUnitModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-800 p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <h3 className="text-sm font-bold text-white">
                 Daftarkan Unit Usaha ke Klinik Syariah

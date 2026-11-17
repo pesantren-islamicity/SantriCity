@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import {
   SantriProfile,
+  TahfidzEntry,
+  NilaiMataPelajaran,
+  PresensiHarian,
+  CatatanDisiplin,
+  RekamMedis,
+  TagihanKeuangan,
+  AIAnalisisKaffah,
   BroadcastTelegram,
   UserRole,
   Language,
@@ -19,11 +26,25 @@ import {
   HardDrive,
   RefreshCw,
   Send,
+  Archive,
+  FileArchive,
 } from 'lucide-react';
 import { downloadJsonBackup, exportToCsv } from '../services/storageService';
+import {
+  ArchiveYearOption,
+  downloadYearlyArchiveZip,
+} from '../services/yearlyArchiveService';
+import { AdminDataExportPanel } from './AdminDataExportPanel';
 
 interface AdminConsoleProps {
   santriList: SantriProfile[];
+  tahfidzList?: TahfidzEntry[];
+  nilaiList?: NilaiMataPelajaran[];
+  presensiList?: PresensiHarian[];
+  disiplinList?: CatatanDisiplin[];
+  kesehatanList?: RekamMedis[];
+  tagihanList?: TagihanKeuangan[];
+  aiKaffahMap?: Record<string, AIAnalisisKaffah>;
   broadcasts: BroadcastTelegram[];
   onAddBroadcast: (bc: Omit<BroadcastTelegram, 'id'>) => void;
   fullDatabaseState: unknown;
@@ -37,6 +58,13 @@ interface AdminConsoleProps {
 
 export const AdminConsoleModule: React.FC<AdminConsoleProps> = ({
   santriList,
+  tahfidzList,
+  nilaiList,
+  presensiList,
+  disiplinList,
+  kesehatanList,
+  tagihanList,
+  aiKaffahMap,
   broadcasts,
   onAddBroadcast,
   fullDatabaseState,
@@ -47,18 +75,65 @@ export const AdminConsoleModule: React.FC<AdminConsoleProps> = ({
   currentRole,
   lang,
 }) => {
-  const t = getTranslation(lang);
+  void getTranslation(lang);
+  const dbFallback = (fullDatabaseState || {}) as Record<string, unknown>;
+  const resolvedTahfidz = tahfidzList ?? ((dbFallback.tahfidzList as TahfidzEntry[]) || []);
+  const resolvedNilai = nilaiList ?? ((dbFallback.nilaiList as NilaiMataPelajaran[]) || []);
+  const resolvedPresensi = presensiList ?? ((dbFallback.presensiList as PresensiHarian[]) || []);
+  const resolvedDisiplin = disiplinList ?? ((dbFallback.disiplinList as CatatanDisiplin[]) || []);
+  const resolvedKesehatan = kesehatanList ?? ((dbFallback.kesehatanList as RekamMedis[]) || []);
+  const resolvedTagihan = tagihanList ?? ((dbFallback.tagihanList as TagihanKeuangan[]) || []);
+  const resolvedAiKaffah =
+    aiKaffahMap ?? ((dbFallback.aiKaffahMap as Record<string, AIAnalisisKaffah>) || {});
+
   const [bcTitle, setBcTitle] = useState<string>('');
   const [bcChannel, setBcChannel] = useState<'t.me/SantriCity313' | 'Official Pengumuman' | 'Darurat Poskestren'>('t.me/SantriCity313');
   const [bcCategory, setBcCategory] = useState<'Penting' | 'Akademik' | 'Kesehatan' | 'Jadwal' | 'Kegiatan'>('Penting');
   const [bcContent, setBcContent] = useState<string>('');
   const [bcPriority, setBcPriority] = useState<'Normal' | 'Tinggi' | 'Darurat'>('Normal');
+  const [archiveYear, setArchiveYear] = useState<ArchiveYearOption>('2026');
+  const [isArchiving, setIsArchiving] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const matchesArchiveYear = (tanggal?: string) =>
+    archiveYear === 'all' || Boolean(tanggal && tanggal.startsWith(archiveYear));
+  const yearAttendanceCount =
+    resolvedPresensi.filter((p) => matchesArchiveYear(p.tanggal)).length +
+    resolvedDisiplin.filter((d) => matchesArchiveYear(d.tanggal)).length;
+  const yearHealthCount = resolvedKesehatan.filter((h) => matchesArchiveYear(h.tanggal)).length;
+  const yearTahfidzCount = resolvedTahfidz.filter((t) => matchesArchiveYear(t.tanggal)).length;
 
   const handleBackupDownload = () => {
     downloadJsonBackup(fullDatabaseState, 'santricity_masyarakat_full_backup');
     setStatusMessage('Cadangan database JSON lengkap berhasil diunduh ke penyimpanan lokal.');
     setTimeout(() => setStatusMessage(null), 4000);
+  };
+
+  const handleDownloadYearlyArchive = async () => {
+    if (isArchiving) return;
+    setIsArchiving(true);
+    try {
+      const result = await downloadYearlyArchiveZip({
+        year: archiveYear,
+        santriList,
+        presensiList: resolvedPresensi,
+        disiplinList: resolvedDisiplin,
+        nilaiList: resolvedNilai,
+        kesehatanList: resolvedKesehatan,
+        tahfidzList: resolvedTahfidz,
+        exportedByRole: currentRole,
+      });
+      setStatusMessage(
+        `Arsip tahunan offline (${result.filename}) berisi ${result.fileCount} berkas JSON (${result.totalRecords} catatan historis) berhasil diunduh.`
+      );
+      setTimeout(() => setStatusMessage(null), 6000);
+    } catch (err) {
+      console.error('Yearly archive ZIP error:', err);
+      setStatusMessage('Gagal membuat arsip ZIP tahunan. Silakan coba lagi.');
+      setTimeout(() => setStatusMessage(null), 5000);
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,7 +213,7 @@ export const AdminConsoleModule: React.FC<AdminConsoleProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onManualSync}
             disabled={isSyncing || !isOnline}
@@ -146,6 +221,16 @@ export const AdminConsoleModule: React.FC<AdminConsoleProps> = ({
           >
             <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkronkan ke Cloud'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadYearlyArchive}
+            disabled={isArchiving}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-neutral-950 shadow-md shadow-cyan-950/40 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          >
+            <Archive className={`w-3.5 h-3.5 ${isArchiving ? 'animate-pulse' : ''}`} />
+            <span>{isArchiving ? 'Mengemas ZIP...' : 'Download Yearly Archive'}</span>
           </button>
 
           <button
@@ -212,6 +297,22 @@ export const AdminConsoleModule: React.FC<AdminConsoleProps> = ({
         </div>
       </div>
 
+      {/* Authorized Filtered Data Export Center (CSV & PDF) */}
+      <AdminDataExportPanel
+        santriList={santriList}
+        tahfidzList={resolvedTahfidz}
+        nilaiList={resolvedNilai}
+        presensiList={resolvedPresensi}
+        disiplinList={resolvedDisiplin}
+        tagihanList={resolvedTagihan}
+        aiKaffahMap={resolvedAiKaffah}
+        currentRole={currentRole}
+        onStatusFeedback={(msg) => {
+          setStatusMessage(msg);
+          setTimeout(() => setStatusMessage(null), 5000);
+        }}
+      />
+
       {/* Grid: Backup & Restore + Export CSV */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Backup & Restore Box */}
@@ -246,23 +347,65 @@ export const AdminConsoleModule: React.FC<AdminConsoleProps> = ({
           </div>
         </div>
 
-        {/* Export Data Sheets Box */}
+        {/* Yearly Historical Archive Box (ZIP of JSON files) */}
         <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-4">
-          <div className="flex items-center gap-2 font-bold text-white text-sm">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-            <span>Ekspor Lembar Kerja Lengkap (CSV / Excel)</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-bold text-white text-sm">
+              <FileArchive className="w-4 h-4 text-cyan-400" />
+              <span>Arsip Historis Tahunan Offline (ZIP JSON)</span>
+            </div>
+            <select
+              aria-label="Pilih Tahun Arsip"
+              value={archiveYear}
+              onChange={(e) => setArchiveYear(e.target.value as ArchiveYearOption)}
+              className="px-2.5 py-1 rounded-lg bg-neutral-950 border border-neutral-800 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="2026">Tahun 2026</option>
+              <option value="2025">Tahun 2025</option>
+              <option value="all">Semua Tahun</option>
+            </select>
           </div>
           <p className="text-xs text-neutral-400 leading-relaxed">
-            Ekspor rekapitulasi data santri pondok, buku besar keuangan, dan transkrip akademik secara mandiri untuk arsip kementerian atau dinas pendidikan.
+            Kemas seluruh catatan historis tahunan (presensi, nilai akademik, rekam medis poskestren, dan hafalan tahfidz) ke dalam satu berkas ZIP berisi file JSON terstruktur untuk penyimpanan luring jangka panjang.
           </p>
 
-          <div className="pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
+            <div className="p-2 rounded-lg bg-neutral-950/70 border border-neutral-800 text-neutral-300">
+              <div className="text-neutral-500 text-[10px]">attendance.json</div>
+              <div className="text-emerald-400 font-bold">{yearAttendanceCount} log</div>
+            </div>
+            <div className="p-2 rounded-lg bg-neutral-950/70 border border-neutral-800 text-neutral-300">
+              <div className="text-neutral-500 text-[10px]">grades.json</div>
+              <div className="text-blue-400 font-bold">{resolvedNilai.length} mapel</div>
+            </div>
+            <div className="p-2 rounded-lg bg-neutral-950/70 border border-neutral-800 text-neutral-300">
+              <div className="text-neutral-500 text-[10px]">health.json</div>
+              <div className="text-teal-400 font-bold">{yearHealthCount} rekam</div>
+            </div>
+            <div className="p-2 rounded-lg bg-neutral-950/70 border border-neutral-800 text-neutral-300">
+              <div className="text-neutral-500 text-[10px]">tahfidz.json</div>
+              <div className="text-amber-400 font-bold">{yearTahfidzCount} setor</div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
             <button
+              type="button"
+              onClick={handleDownloadYearlyArchive}
+              disabled={isArchiving}
+              className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-neutral-950 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <Archive className={`w-3.5 h-3.5 ${isArchiving ? 'animate-pulse' : ''}`} />
+              <span>{isArchiving ? 'Mengemas Arsip ZIP...' : 'Download Yearly Archive'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleExportAllSantriCsv}
-              className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 flex items-center justify-center gap-2"
+              className="py-2 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Ekspor Rekapitulasi Data Santri (CSV)</span>
+              <span>CSV Ringkas</span>
             </button>
           </div>
         </div>
