@@ -32,6 +32,7 @@ import {
   Cpu,
   Ticket,
   Scale,
+  Library,
 } from 'lucide-react';
 import { AIDailyDigestSection } from './AIDailyDigestSection';
 import { GrowthTimelineSection } from './GrowthTimelineSection';
@@ -607,8 +608,8 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
         </div>
       </div>
 
-      {/* StartUp Center, Peluang Beasiswa & Klinik Bisnis Syariah Quick Access */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* StartUp Center, Peluang Beasiswa, Klinik Bisnis Syariah & E-Library Quick Access */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shrink-0">
@@ -680,6 +681,31 @@ export const DashboardKaffah: React.FC<DashboardKaffahProps> = ({
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-neutral-950 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap self-start cursor-pointer"
           >
             <span>Buka Klinik</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shrink-0">
+              <Library className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">
+                Perpustakaan Digital (E-Library)
+              </h3>
+              <p className="text-xs text-neutral-400">
+                Katalog Kitab & E-Book · Pinjam Berbasis QR · Rekomendasi Bacaan AI
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('elibrary')}
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-neutral-950 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap self-start cursor-pointer"
+          >
+            <span>Buka E-Library</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>

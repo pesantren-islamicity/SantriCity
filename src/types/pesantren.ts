@@ -919,6 +919,172 @@ export interface ShariaConsultationSession {
   status: 'Terjadwal' | 'Selesai' | 'Menunggu Konfirmasi';
 }
 
+export type HajiUmrohAyatBasis = 'QS 22:27' | 'QS 22:28' | 'QS 22:29';
 
+export type HajiUmrohCompetencyPillar =
+  | 'Dakwah & Mobilisasi Jamaah'
+  | 'Ekonomi Syariah & Hadyu'
+  | 'Fiqh Manasik & Tahallul'
+  | 'Tata Kelola PPIU/PIHK & Regulasi'
+  | 'Bahasa Arab & Bimbingan Muthawwif';
 
+export interface HajiUmrohCourse {
+  id: string;
+  kodeMk: string;
+  namaMk: string;
+  semester: number;
+  sks: number;
+  landasanAyat: HajiUmrohAyatBasis;
+  pilar: HajiUmrohCompetencyPillar;
+  kompetensiKaffah: string;
+  kitabReferensi: string;
+  status: 'Lulus' | 'Sedang Ditempuh' | 'Rencana';
+  nilaiHuruf?: 'A' | 'A-' | 'B+';
+}
 
+export interface HajiUmrohPracticumSession {
+  id: string;
+  santriId: string;
+  santriNama: string;
+  judulPraktikum: string;
+  fokusAyat: HajiUmrohAyatBasis;
+  peranSimulasi:
+    | 'Muthawwif / Pembimbing Ibadah'
+    | 'Manajer Operasional PPIU/PIHK'
+    | 'Koordinator Logistik & Masyair'
+    | 'Pengelola Hadyu & Keuangan Syariah';
+  tanggal: string;
+  lokasi: string;
+  catatanCapaian: string;
+  status: 'Terjadwal' | 'Lulus Praktikum' | 'Menunggu Verifikasi';
+}
+
+export interface HajiUmrohAIStudyCaseResult {
+  topik: string;
+  fokusAyat: HajiUmrohAyatBasis;
+  assessedAt: string;
+  ringkasanAnalisis: string;
+  relevansiAyat: string;
+  langkahManajemenKaffah: string[];
+  indikatorKeberhasilan: string;
+  referensiDalil: string;
+}
+
+export type UniversityFacultyCode = 'FTIK' | 'FASIH' | 'FUAD' | 'FEBI';
+
+export interface UniversityProgram {
+  id: string;
+  fakultasKode: UniversityFacultyCode;
+  fakultasNama: string;
+  jurusan: string;
+  namaProdi: string;
+  jenjang: 'S1' | 'Profesi (PPG)';
+  akreditasiUnggul: boolean; // ditandai (*) pada brosur resmi
+  bahasaPengantar: 'Indonesia · Arab · Inggris' | 'Indonesia · Arab';
+  prospekKarir: string;
+  minTahfidzJuz?: number;
+  minNilaiRata?: number;
+  gelarLulusan?: string;
+  lamaStudi?: string;
+  totalSks?: number;
+  deskripsiMendalam?: string;
+  fokusKurikulum?: string[];
+  landasanQurani?: string;
+  sertifikasiPendamping?: string[];
+  mitraGlobal?: string;
+  unggulanKaffah?: boolean;
+}
+
+export interface UniversityAdmissionApplication {
+  id: string;
+  santriId: string;
+  santriNama: string;
+  fakultasKode: UniversityFacultyCode;
+  programId: string;
+  namaProdi: string;
+  jalurMasuk:
+    | 'Jalur Tahfidz Al-Qur\'an'
+    | 'Jalur Prestasi Akademik & Kitab'
+    | 'Jalur Beasiswa Internasional Kaffah'
+    | 'Jalur Reguler SantriCity';
+  tanggalDaftar: string;
+  catatanRencanaStudi: string;
+  status: 'Diajukan' | 'Verifikasi Berkas' | 'Diterima / Siap Matrikulasi';
+}
+
+export interface UniversityAIRecommendation {
+  santriNama: string;
+  minatUtama: string;
+  assessedAt: string;
+  ringkasanProfil: string;
+  rekomendasiProdi: {
+    namaProdi: string;
+    fakultasKode: UniversityFacultyCode;
+    alasanKesesuaian: string;
+  }[];
+  rencanaPersiapanSantri: string[];
+  nasihatAkademik: string;
+}
+
+export type ELibraryCategory =
+  | "Tafsir & Al-Qur'an"
+  | 'Hadis & Sirah'
+  | 'Fiqih & Muamalah'
+  | 'Bahasa Arab & Adab'
+  | 'Ekonomi, Bisnis & Haji'
+  | 'Sains & Teknologi Santri';
+
+export interface ELibraryBook {
+  id: string;
+  kodeKitab: string;
+  isbn: string;
+  judul: string;
+  judulArab?: string;
+  penulis: string;
+  penerbit: string;
+  tahunTerbit: number;
+  kategori: ELibraryCategory;
+  bahasa: 'Indonesia · Arab' | 'Arab Klasik' | 'Indonesia · Inggris' | 'Indonesia';
+  jumlahHalaman: number;
+  stokTotal: number;
+  format: 'E-Book PDF/EPUB' | 'Kitab Digital & Fisik';
+  ringkasanIsi: string;
+  topikKunci: string[];
+  cuplikanTeks: string;
+  ratingPembaca: number;
+  targetMinJuz?: number;
+}
+
+export interface ELibraryLoan {
+  id: string;
+  bookId: string;
+  kodeKitab: string;
+  judulBuku: string;
+  santriId: string;
+  santriNama: string;
+  nis: string;
+  tanggalPinjam: string;
+  tanggalJatuhTempo: string;
+  tanggalKembali?: string;
+  status: 'Dipinjam (Aktif)' | 'Menunggu Ambil QR' | 'Dikembalikan' | 'Terlambat';
+  qrPayload: string;
+  jenisPinjam: 'Akses E-Reader QR' | 'Pinjam Fisik & Digital QR';
+  catatanPetugas?: string;
+}
+
+export interface ELibraryAIRecommendation {
+  santriNama: string;
+  minatBaca: string;
+  tujuanBelajar: string;
+  assessedAt: string;
+  ringkasanMinat: string;
+  bukuDirekomendasikan: {
+    kodeKitab: string;
+    judulBuku: string;
+    kategori: ELibraryCategory;
+    alasanKesesuaian: string;
+    targetBacaPekanan: string;
+  }[];
+  rencanaLiterasiSantri: string[];
+  nasihatLiterasi: string;
+}

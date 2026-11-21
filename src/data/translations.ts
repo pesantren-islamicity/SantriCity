@@ -26,6 +26,9 @@ export const translations = {
     navStartupCenter: 'StartUp Center & Fasilitas',
     navBeasiswa: 'Peluang Beasiswa & Voucher',
     navKlinikSyariah: 'Klinik Bisnis Syariah',
+    navHajiUmroh: 'Prodi Manajemen Haji & Umroh',
+    navUniversitas: 'Universitas Islamicity Int.',
+    navElibrary: 'Perpustakaan Digital (E-Library)',
     navAI: 'Analitik AI Kaffah',
     navAdmin: 'Konsol Admin & Backup',
 
@@ -95,6 +98,9 @@ export const translations = {
     navStartupCenter: 'StartUp Center & Facilities',
     navBeasiswa: 'Scholarships & Vouchers',
     navKlinikSyariah: 'Sharia Business Clinic',
+    navHajiUmroh: 'Hajj & Umrah Management Dept.',
+    navUniversitas: 'Islamicity Int. University',
+    navElibrary: 'Islamicity E-Library',
     navAI: 'AI Kaffah Analytics',
     navAdmin: 'Admin & Backup Console',
 
@@ -164,6 +170,9 @@ export const translations = {
     navStartupCenter: 'مركز الابتكار والمرافق الذكية',
     navBeasiswa: 'فرص المنح الدراسية والقسائم',
     navKlinikSyariah: 'عيادة الأعمال الشرعية الذكية',
+    navHajiUmroh: 'برنامج إدارة الحج والعمرة الكافة',
+    navUniversitas: 'جامعة إسلامي سيتي الدولية',
+    navElibrary: 'المكتبة الرقمية الإسلامية',
     navAI: 'التحليل الذكي المتكامل',
     navAdmin: 'لوحة التحكم والنسخ',
 

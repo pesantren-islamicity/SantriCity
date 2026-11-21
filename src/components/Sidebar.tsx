@@ -25,6 +25,9 @@ import {
   Scale,
   X,
   User,
+  Compass,
+  Landmark,
+  Library,
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -41,6 +44,9 @@ export type ActiveTab =
   | 'startup-center'
   | 'beasiswa'
   | 'klinik-syariah'
+  | 'haji-umroh'
+  | 'universitas'
+  | 'elibrary'
   | 'ai'
   | 'admin';
 
@@ -96,6 +102,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'startup-center', label: (t as any).navStartupCenter || 'StartUp Center & Fasilitas', icon: Building2, badge: 'Smart' },
     { id: 'beasiswa', label: (t as any).navBeasiswa || 'Peluang Beasiswa & Voucher', icon: Ticket, badge: '12 Jalur' },
     { id: 'klinik-syariah', label: (t as any).navKlinikSyariah || 'Klinik Bisnis Syariah', icon: Scale, badge: 'Muamalah' },
+    { id: 'haji-umroh', label: (t as any).navHajiUmroh || 'Prodi Manajemen Haji & Umroh', icon: Compass, badge: 'QS 22:27-29' },
+    { id: 'universitas', label: (t as any).navUniversitas || 'Universitas Islamicity Int.', icon: Landmark, badge: '4 Fakultas' },
+    { id: 'elibrary', label: (t as any).navElibrary || 'Perpustakaan Digital (E-Library)', icon: Library, badge: 'E-Book QR' },
     { id: 'ai', label: t.navAI, icon: Sparkles, badge: 'AI 360°' },
     { id: 'admin', label: t.navAdmin, icon: ShieldAlert },
   ];

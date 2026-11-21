@@ -38,17 +38,28 @@
 }
 
 @media print {
-  header, nav, .no-print, button, .action-bar {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  header, nav, aside, .no-print, button, .action-bar {
     display: none !important;
   }
-  body, main {
+  html, body, #root, main {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     background: white !important;
-    color: black !important;
+    color: #111827 !important;
   }
   .print-only {
     display: block !important;
   }
   .print-break {
     page-break-after: always;
+  }
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

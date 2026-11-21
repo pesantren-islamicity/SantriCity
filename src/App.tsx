@@ -27,6 +27,12 @@ import {
   ScholarshipApplication,
   ShariaBusinessClinicCase,
   ShariaConsultationSession,
+  HajiUmrohCourse,
+  HajiUmrohPracticumSession,
+  UniversityProgram,
+  UniversityAdmissionApplication,
+  ELibraryBook,
+  ELibraryLoan,
 } from './types/pesantren';
 import {
   INITIAL_SANTRI_LIST,
@@ -49,6 +55,12 @@ import {
   INITIAL_SCHOLARSHIP_APPLICATIONS,
   INITIAL_SHARIA_BUSINESS_CASES,
   INITIAL_SHARIA_CONSULTATIONS,
+  INITIAL_HAJI_UMROH_COURSES,
+  INITIAL_HAJI_UMROH_PRACTICUMS,
+  INITIAL_UNIVERSITY_PROGRAMS,
+  INITIAL_UNIVERSITY_APPLICATIONS,
+  INITIAL_ELIBRARY_BOOKS,
+  INITIAL_ELIBRARY_LOANS,
 } from './data/mockData';
 import { loadFromLocal, saveToLocal } from './services/storageService';
 import { analyzeSantriKaffah } from './services/geminiService';
@@ -73,6 +85,9 @@ import { KalenderModule } from './components/KalenderModule';
 import { StartupCenterModule } from './components/StartupCenterModule';
 import { BeasiswaVoucherModule } from './components/BeasiswaVoucherModule';
 import { KlinikBisnisSyariahModule } from './components/KlinikBisnisSyariahModule';
+import { ManajemenHajiUmrohModule } from './components/ManajemenHajiUmrohModule';
+import { UniversitasIslamicityModule } from './components/UniversitasIslamicityModule';
+import { PerpustakaanDigitalModule } from './components/PerpustakaanDigitalModule';
 import { AIAnalisisKaffahModule } from './components/AIAnalisisKaffahModule';
 import { AdminConsoleModule } from './components/AdminConsoleModule';
 import { KaffahReportModal } from './components/KaffahReportModal';
@@ -208,6 +223,63 @@ function sanitizeShariaConsultations(raw: unknown): ShariaConsultationSession[] 
   );
 }
 
+function sanitizeHajiUmrohCourses(raw: unknown): HajiUmrohCourse[] {
+  if (!Array.isArray(raw) || raw.length === 0) return INITIAL_HAJI_UMROH_COURSES;
+  const valid = raw.every(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      typeof (item as HajiUmrohCourse).id === 'string' &&
+      typeof (item as HajiUmrohCourse).namaMk === 'string' &&
+      typeof (item as HajiUmrohCourse).sks === 'number'
+  );
+  return valid ? (raw as HajiUmrohCourse[]) : INITIAL_HAJI_UMROH_COURSES;
+}
+
+function sanitizeHajiUmrohPracticums(raw: unknown): HajiUmrohPracticumSession[] {
+  if (!Array.isArray(raw)) return INITIAL_HAJI_UMROH_PRACTICUMS;
+  return raw.filter(
+    (item): item is HajiUmrohPracticumSession =>
+      Boolean(
+        item &&
+          typeof item === 'object' &&
+          typeof (item as HajiUmrohPracticumSession).id === 'string' &&
+          typeof (item as HajiUmrohPracticumSession).judulPraktikum === 'string'
+      )
+  );
+}
+
+function sanitizeUniversityApplications(
+  raw: unknown
+): UniversityAdmissionApplication[] {
+  if (!Array.isArray(raw)) return INITIAL_UNIVERSITY_APPLICATIONS;
+  return raw.filter(
+    (item): item is UniversityAdmissionApplication =>
+      Boolean(
+        item &&
+          typeof item === 'object' &&
+          typeof (item as UniversityAdmissionApplication).id === 'string' &&
+          typeof (item as UniversityAdmissionApplication).namaProdi === 'string' &&
+          typeof (item as UniversityAdmissionApplication).santriNama === 'string'
+      )
+  );
+}
+
+function sanitizeELibraryLoans(raw: unknown): ELibraryLoan[] {
+  if (!Array.isArray(raw)) return INITIAL_ELIBRARY_LOANS;
+  return raw.filter(
+    (item): item is ELibraryLoan =>
+      Boolean(
+        item &&
+          typeof item === 'object' &&
+          typeof (item as ELibraryLoan).id === 'string' &&
+          typeof (item as ELibraryLoan).bookId === 'string' &&
+          typeof (item as ELibraryLoan).judulBuku === 'string' &&
+          typeof (item as ELibraryLoan).qrPayload === 'string'
+      )
+  );
+}
+
 function loadArrayFromLocal<T>(
   key: string,
   fallback: T[],
@@ -311,6 +383,41 @@ export default function App() {
       loadFromLocal<unknown>('shariaConsultations', INITIAL_SHARIA_CONSULTATIONS)
     )
   );
+  const [hajiUmrohCourses, setHajiUmrohCourses] = useState<HajiUmrohCourse[]>(
+    () =>
+      sanitizeHajiUmrohCourses(
+        loadFromLocal<unknown>('hajiUmrohCourses', INITIAL_HAJI_UMROH_COURSES)
+      )
+  );
+  const [hajiUmrohPracticums, setHajiUmrohPracticums] = useState<
+    HajiUmrohPracticumSession[]
+  >(() =>
+    sanitizeHajiUmrohPracticums(
+      loadFromLocal<unknown>(
+        'hajiUmrohPracticums',
+        INITIAL_HAJI_UMROH_PRACTICUMS
+      )
+    )
+  );
+  const [universityPrograms] = useState<UniversityProgram[]>(
+    INITIAL_UNIVERSITY_PROGRAMS
+  );
+  const [universityApplications, setUniversityApplications] = useState<
+    UniversityAdmissionApplication[]
+  >(() =>
+    sanitizeUniversityApplications(
+      loadFromLocal<unknown>(
+        'universityApplications',
+        INITIAL_UNIVERSITY_APPLICATIONS
+      )
+    )
+  );
+  const [elibraryBooks] = useState<ELibraryBook[]>(INITIAL_ELIBRARY_BOOKS);
+  const [elibraryLoans, setElibraryLoans] = useState<ELibraryLoan[]>(() =>
+    sanitizeELibraryLoans(
+      loadFromLocal<unknown>('elibraryLoans', INITIAL_ELIBRARY_LOANS)
+    )
+  );
 
   const [unreadBroadcastCount, setUnreadBroadcastCount] = useState<number>(2);
   const [readGoalAlertIds, setReadGoalAlertIds] = useState<string[]>(() => getReadAlertIds());
@@ -375,6 +482,10 @@ export default function App() {
     saveToLocal('scholarshipApplications', scholarshipApplications);
     saveToLocal('shariaBusinessCases', shariaBusinessCases);
     saveToLocal('shariaConsultations', shariaConsultations);
+    saveToLocal('hajiUmrohCourses', hajiUmrohCourses);
+    saveToLocal('hajiUmrohPracticums', hajiUmrohPracticums);
+    saveToLocal('universityApplications', universityApplications);
+    saveToLocal('elibraryLoans', elibraryLoans);
   }, [
     santriList,
     activeSantriId,
@@ -396,6 +507,10 @@ export default function App() {
     scholarshipApplications,
     shariaBusinessCases,
     shariaConsultations,
+    hajiUmrohCourses,
+    hajiUmrohPracticums,
+    universityApplications,
+    elibraryLoans,
   ]);
 
   // Dark Mode root class syncing
@@ -765,6 +880,97 @@ export default function App() {
     );
   };
 
+  const handleUpdateHajiCourseStatus = (
+    courseId: string,
+    status: HajiUmrohCourse['status']
+  ) => {
+    setHajiUmrohCourses((prev) =>
+      prev.map((c) => (c.id === courseId ? { ...c, status } : c))
+    );
+  };
+
+  const handleAddHajiPracticum = (
+    session: Omit<HajiUmrohPracticumSession, 'id'>
+  ) => {
+    const created: HajiUmrohPracticumSession = {
+      ...session,
+      id: `hup-${Date.now()}`,
+    };
+    setHajiUmrohPracticums((prev) => [created, ...prev]);
+  };
+
+  const handleUpdateHajiPracticumStatus = (
+    sessionId: string,
+    status: HajiUmrohPracticumSession['status']
+  ) => {
+    setHajiUmrohPracticums((prev) =>
+      prev.map((p) => (p.id === sessionId ? { ...p, status } : p))
+    );
+  };
+
+  const handleAddUniversityApp = (
+    app: Omit<UniversityAdmissionApplication, 'id'>
+  ) => {
+    const created: UniversityAdmissionApplication = {
+      ...app,
+      id: `pmb-${Date.now()}`,
+    };
+    setUniversityApplications((prev) => [created, ...prev]);
+  };
+
+  const handleUpdateUniversityAppStatus = (
+    appId: string,
+    status: UniversityAdmissionApplication['status']
+  ) => {
+    setUniversityApplications((prev) =>
+      prev.map((item) => (item.id === appId ? { ...item, status } : item))
+    );
+  };
+
+  const handleBorrowELibraryBook = (loan: Omit<ELibraryLoan, 'id'>) => {
+    const created: ELibraryLoan = {
+      ...loan,
+      id: `loan-${Date.now()}`,
+    };
+    setElibraryLoans((prev) => [created, ...prev]);
+  };
+
+  const handleUpdateELibraryLoanStatus = (
+    loanId: string,
+    status: ELibraryLoan['status'],
+    note?: string
+  ) => {
+    const today = new Date().toISOString().slice(0, 10);
+    setElibraryLoans((prev) =>
+      prev.map((loan) =>
+        loan.id === loanId
+          ? {
+              ...loan,
+              status,
+              tanggalKembali: status === 'Dikembalikan' ? today : loan.tanggalKembali,
+              catatanPetugas: note || loan.catatanPetugas,
+            }
+          : loan
+      )
+    );
+  };
+
+  const handleExtendELibraryLoan = (loanId: string, extraDays = 7) => {
+    setElibraryLoans((prev) =>
+      prev.map((loan) => {
+        if (loan.id !== loanId) return loan;
+        const base = new Date(loan.tanggalJatuhTempo);
+        const validBase = Number.isNaN(base.getTime()) ? new Date() : base;
+        validBase.setDate(validBase.getDate() + extraDays);
+        return {
+          ...loan,
+          tanggalJatuhTempo: validBase.toISOString().slice(0, 10),
+          catatanPetugas: `Diperpanjang +${extraDays} hari via Portal SantriCity.`,
+        };
+      })
+    );
+  };
+
   const handleRunAiAnalysis = async () => {
     setIsAiAnalyzing(true);
     try {
@@ -807,6 +1013,10 @@ export default function App() {
     if (Array.isArray(restored.scholarshipApplications)) setScholarshipApplications(restored.scholarshipApplications);
     if (restored.shariaBusinessCases) setShariaBusinessCases(sanitizeShariaCases(restored.shariaBusinessCases));
     if (restored.shariaConsultations) setShariaConsultations(sanitizeShariaConsultations(restored.shariaConsultations));
+    if (restored.hajiUmrohCourses) setHajiUmrohCourses(sanitizeHajiUmrohCourses(restored.hajiUmrohCourses));
+    if (restored.hajiUmrohPracticums) setHajiUmrohPracticums(sanitizeHajiUmrohPracticums(restored.hajiUmrohPracticums));
+    if (restored.universityApplications) setUniversityApplications(sanitizeUniversityApplications(restored.universityApplications));
+    if (restored.elibraryLoans) setElibraryLoans(sanitizeELibraryLoans(restored.elibraryLoans));
   };
 
   const fullDatabaseState = {
@@ -830,6 +1040,10 @@ export default function App() {
     scholarshipApplications,
     shariaBusinessCases,
     shariaConsultations,
+    hajiUmrohCourses,
+    hajiUmrohPracticums,
+    universityApplications,
+    elibraryLoans,
     exportedAt: new Date().toISOString(),
   };
 
@@ -1042,6 +1256,46 @@ export default function App() {
               onAddCase={handleAddShariaCase}
               onAddConsultation={handleAddShariaConsultation}
               onUpdateConsultationStatus={handleUpdateShariaConsultationStatus}
+              currentRole={currentRole}
+              lang={lang}
+            />
+          )}
+
+          {activeTab === 'haji-umroh' && (
+            <ManajemenHajiUmrohModule
+              santri={activeSantri}
+              courses={hajiUmrohCourses}
+              practicums={hajiUmrohPracticums}
+              onUpdateCourseStatus={handleUpdateHajiCourseStatus}
+              onAddPracticum={handleAddHajiPracticum}
+              onUpdatePracticumStatus={handleUpdateHajiPracticumStatus}
+              currentRole={currentRole}
+              lang={lang}
+            />
+          )}
+
+          {activeTab === 'universitas' && (
+            <UniversitasIslamicityModule
+              santri={activeSantri}
+              nilaiList={santriNilai}
+              programs={universityPrograms}
+              applications={universityApplications}
+              onAddApplication={handleAddUniversityApp}
+              onUpdateApplicationStatus={handleUpdateUniversityAppStatus}
+              currentRole={currentRole}
+              lang={lang}
+            />
+          )}
+
+          {activeTab === 'elibrary' && (
+            <PerpustakaanDigitalModule
+              santri={activeSantri}
+              nilaiList={santriNilai}
+              books={elibraryBooks}
+              loans={elibraryLoans}
+              onBorrowBook={handleBorrowELibraryBook}
+              onUpdateLoanStatus={handleUpdateELibraryLoanStatus}
+              onExtendLoan={handleExtendELibraryLoan}
               currentRole={currentRole}
               lang={lang}
             />

@@ -598,7 +598,100 @@ Balas HANYA dalam JSON valid tanpa markdown dengan struktur:
       return generateJsonFromPrompt(prompt);
     }
 
+    case 'haji-umroh': {
+      const { topik, fokusAyat, peranSimulasi, skenarioKasus } = payload;
+      const prompt = `Anda adalah Kaprodi & Pakar Kurikulum Program Studi Manajemen Haji dan Umroh Islamicity Kaffah berbasis QS Al-Hajj (22): 27-29.
+Analisis studi kasus manajemen haji & umroh berikut secara komprehensif, ilmiah, syar'i, dan operasional:
+- Topik / Mata Kuliah: ${topik}
+- Landasan Ayat Utama: ${fokusAyat} (QS Al-Hajj 22:27 tentang panggilan global & mobilisasi jamaah; 22:28 tentang manfaat ekonomi, syukur nikmat & tata kelola hadyu/dam; 22:29 tentang penyempurnaan manasik, tahallul, nazar & thawaf di Baitul 'Atiq)
+- Peran Pengelola: ${peranSimulasi}
+- Skenario / Pertanyaan Studi Kasus: ${skenarioKasus}
+
+Balas HANYA dalam JSON valid tanpa markdown dengan struktur:
+{
+  "ringkasanAnalisis": "2-3 kalimat analisis kaffah atas studi kasus manajemen haji & umroh tersebut",
+  "relevansiAyat": "2 kalimat keterkaitan langsung solusi dengan QS Al-Hajj 22:27-29",
+  "langkahManajemenKaffah": ["langkah operasional 1", "langkah operasional 2", "langkah operasional 3"],
+  "indikatorKeberhasilan": "1 kalimat tolok ukur kepuasan jamaah dan keabsahan syar'i",
+  "referensiDalil": "1 kalimat rujukan kitab manasik atau regulasi PPIU/PIHK terkait"
+}`;
+      return generateJsonFromPrompt(prompt);
+    }
+
+    case 'universitas-islamicity': {
+      const { santriNama, capaianJuz, avgNilai, poinDisiplin, fakultasFokus, minatKarir, catatanTambahan } = payload;
+      const prompt = `Anda adalah Konselor Akademik & Penerimaan Mahasiswa Baru Universitas Islamicity Internasional (memiliki 4 fakultas resmi: FTIK Tarbiyah & Ilmu Keguruan, FASIH Syariah & Ilmu Hukum, FUAD Ushuluddin Adab & Dakwah, serta FEBI Ekonomi & Bisnis Islam).
+Berikan rekomendasi penjurusan program studi terbaik untuk calon mahasiswa santri berikut:
+- Nama Santri: ${santriNama}
+- Capaian Tahfidz: ${capaianJuz} Juz
+- Rata-rata Nilai Akademik: ${avgNilai}
+- Skor Adab & Disiplin: ${poinDisiplin}
+- Fokus Fakultas Pilihan: ${fakultasFokus}
+- Aspirasi Karir / Minat: ${minatKarir}
+- Catatan Tambahan: ${catatanTambahan}
+
+Balas HANYA dalam JSON valid tanpa markdown dengan struktur:
+{
+  "ringkasanProfil": "2 kalimat evaluasi potensi akademik dan tahfidz santri untuk jenjang Universitas Islamicity Internasional",
+  "rekomendasiProdi": [
+    {
+      "namaProdi": "Nama Prodi Resmi sesuai FTIK/FASIH/FUAD/FEBI",
+      "fakultasKode": "FTIK" | "FASIH" | "FUAD" | "FEBI",
+      "alasanKesesuaian": "1-2 kalimat alasan kesesuaian profil santri dengan prodi tersebut"
+    }
+  ],
+  "rencanaPersiapanSantri": ["langkah persiapan 1", "langkah persiapan 2", "langkah persiapan 3"],
+  "nasihatAkademik": "1 kalimat nasihat ilmiah berorientasi pengabdian umat"
+}`;
+      return generateJsonFromPrompt(prompt);
+    }
+
+    case 'elibrary-rekomendasi': {
+      const {
+        santriNama,
+        kelas,
+        capaianJuz,
+        avgNilai,
+        minatBaca,
+        tujuanBelajar,
+        kategoriFokus,
+        availableBooksText,
+      } = payload;
+      const prompt = `Anda adalah Pustakawan Cerdas & Kurator Literasi Perpustakaan Digital (E-Library) Islamicity Pesantren SantriCity.
+Rekomendasikan 3 buku/kitab PALING RELEVAN dari daftar katalog resmi di bawah ini berdasarkan profil akademik dan minat baca santri:
+- Nama Santri: ${santriNama}
+- Kelas / Marhalah: ${kelas}
+- Capaian Tahfidz: ${capaianJuz} Juz
+- Rata-rata Nilai Akademik: ${avgNilai}
+- Kategori Fokus Pilihan: ${kategoriFokus}
+- Minat Baca Santri: ${minatBaca}
+- Tujuan Belajar / Riset: ${tujuanBelajar}
+
+Daftar Katalog Resmi E-Library Islamicity:
+${availableBooksText}
+
+Pilih HANYA kodeKitab dan judulBuku yang benar-benar ada pada daftar katalog resmi di atas.
+Balas HANYA dalam JSON valid tanpa markdown dengan struktur:
+{
+  "ringkasanMinat": "2 kalimat analisis karakter literasi santri serta kebutuhan bacaannya saat ini",
+  "bukuDirekomendasikan": [
+    {
+      "kodeKitab": "KODE-KITAB-RESMI",
+      "judulBuku": "Judul Buku Resmi dari Katalog",
+      "kategori": "Tafsir & Al-Qur'an" | "Hadis & Sirah" | "Fiqih & Muamalah" | "Bahasa Arab & Adab" | "Ekonomi, Bisnis & Haji" | "Sains & Teknologi Santri",
+      "alasanKesesuaian": "1-2 kalimat alasan ilmiah mengapa buku ini tepat bagi minat dan level hafalan/akademik santri",
+      "targetBacaPekanan": "contoh: 20 halaman / pekan (ba'da Ashar)"
+    }
+  ],
+  "rencanaLiterasiSantri": ["langkah baca terstruktur 1", "langkah baca terstruktur 2", "langkah baca terstruktur 3"],
+  "nasihatLiterasi": "1 kalimat motivasi adab menuntut ilmu dan mencintai buku"
+}`;
+      return generateJsonFromPrompt(prompt);
+    }
+
     default:
       throw new ServerGeminiError(`Task AI tidak dikenal: ${task}`, 404, 'UNKNOWN_TASK');
   }
 }
+
+

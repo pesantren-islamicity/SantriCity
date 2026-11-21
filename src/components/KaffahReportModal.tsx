@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   SantriProfile,
   TahfidzEntry,
@@ -11,9 +11,21 @@ import {
   NextLessonBatchRecommendation,
   SmartStudyTimetable,
 } from '../types/pesantren';
-import { Printer, Download, X, Sparkles, BookMarked, Brain, Clock, Compass, Target, Calendar, Flame, Award } from 'lucide-react';
+import {
+  Printer,
+  Download,
+  X,
+  Sparkles,
+  Brain,
+  Compass,
+  Calendar,
+  Flame,
+  Award,
+  CheckCircle2,
+} from 'lucide-react';
 import { loadFromLocal } from '../services/storageService';
 import { calculateTahfidzBadges } from '../services/tahfidzBadgeService';
+import { exportKaffahReportToPdf } from '../services/pdfExportService';
 
 interface KaffahReportModalProps {
   isOpen: boolean;
@@ -36,6 +48,20 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
   kesehatanList,
   aiKaffah,
 }) => {
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfExportedFile, setPdfExportedFile] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const avgNilai = nilaiList.length
@@ -61,31 +87,77 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
     window.print();
   };
 
+  const handleDownloadPdf = () => {
+    setIsExportingPdf(true);
+    try {
+      const savedFilename = exportKaffahReportToPdf({
+        santri,
+        tahfidzList,
+        nilaiList,
+        presensiList,
+        kesehatanList,
+        aiKaffah,
+        unlockedBadges,
+        totalBadgesCount: tahfidzBadges.length,
+        roadmap,
+        studyPattern,
+        nextLessonBatch,
+        smartTimetable,
+      });
+      setPdfExportedFile(savedFilename);
+      window.setTimeout(() => setPdfExportedFile(null), 4500);
+    } catch (err) {
+      console.error('Failed exporting Kaffah report PDF:', err);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-4xl bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto print:static print:inset-auto print:block print:p-0 print:bg-white print:overflow-visible">
+      <div className="w-full max-w-4xl bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col print:max-w-none print:max-h-none print:my-0 print:bg-white print:border-0 print:rounded-none print:shadow-none print:overflow-visible">
         {/* Modal Top Actions */}
-        <div className="p-4 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between no-print shrink-0">
-          <div className="flex items-center gap-2">
+        <div className="p-4 bg-neutral-950 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 no-print shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-white uppercase tracking-wider">
               Pratinjau Dokumen Resmi Rapor Kaffah
             </span>
             <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
               Format A4 Standar
             </span>
+            {pdfExportedFile && (
+              <span className="text-[11px] font-medium text-emerald-300 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>PDF tersimpan</span>
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-neutral-950 flex items-center gap-1.5 shadow-sm"
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-neutral-950 flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Cetak / Simpan PDF</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>{isExportingPdf ? 'Membuat PDF...' : 'Download as PDF'}</span>
             </button>
+
             <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5 text-neutral-400" />
+              <span>Cetak Dokumen</span>
+            </button>
+
+            <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800"
+              aria-label="Tutup pratinjau laporan"
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -93,7 +165,7 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
         </div>
 
         {/* Printable Document Body */}
-        <div className="p-8 sm:p-10 bg-white text-neutral-900 overflow-y-auto print:p-0">
+        <div className="p-8 sm:p-10 bg-white text-neutral-900 overflow-y-auto print:p-0 print:overflow-visible">
           {/* Official Letterhead */}
           <div className="border-b-2 border-neutral-900 pb-4 mb-6 text-center space-y-1">
             <div className="font-arabic text-xl font-bold text-neutral-900">
@@ -391,7 +463,7 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
           </div>
 
           {/* Section 3: Adab, Disiplin & Poskestren */}
-          <div className="mb-6 grid grid-cols-2 gap-4 text-xs">
+          <div className="mb-6 grid grid-cols-2 gap-4 text-xs print-break-inside-avoid">
             <div className="p-3 border border-neutral-200 rounded-lg space-y-1">
               <h3 className="font-bold uppercase text-neutral-800">III. Adab & Ubudiyah</h3>
               <div>Poin Kedisiplinan: <strong>{santri.poinDisiplin} / 100 Poin</strong></div>
@@ -410,7 +482,7 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
           </div>
 
           {/* Section 4: AI Kaffah Pedagogic Evaluation */}
-          <div className="mb-8 p-3 bg-neutral-50 border border-neutral-200 rounded-lg space-y-2 text-xs">
+          <div className="mb-8 p-3 bg-neutral-50 border border-neutral-200 rounded-lg space-y-2 text-xs print-break-inside-avoid">
             <div className="flex items-center justify-between">
               <h3 className="font-bold uppercase text-neutral-900">
                 V. Sintesis Analitik AI Kaffah SantriCity
@@ -428,7 +500,7 @@ export const KaffahReportModal: React.FC<KaffahReportModalProps> = ({
           </div>
 
           {/* Signatures */}
-          <div className="grid grid-cols-3 gap-6 text-center text-xs pt-4 border-t border-neutral-300">
+          <div className="grid grid-cols-3 gap-6 text-center text-xs pt-4 border-t border-neutral-300 print-break-inside-avoid">
             <div className="space-y-12">
               <span>Wali Santri</span>
               <div className="font-bold underline">{santri.waliNama}</div>
